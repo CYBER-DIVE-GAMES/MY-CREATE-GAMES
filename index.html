@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>城砦の守護者 - Castle Defender</title>
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- Phaser 3 (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+</head>
+<body>
+    <div id="game-container"></div>
+
+    <!-- ゲームデータ -->
+    <script src="js/data/UnitData.js"></script>
+    <script src="js/data/StageData.js"></script>
+    <script src="js/data/UpgradeData.js"></script>
+
+    <!-- マネージャー -->
+    <script src="js/managers/SaveManager.js"></script>
+    <script src="js/managers/WaveManager.js"></script>
+    <script src="js/managers/UIManager.js"></script>
+
+    <!-- ゲームオブジェクト -->
+    <script src="js/objects/Castle.js"></script>
+    <script src="js/objects/Projectile.js"></script>
+    <script src="js/objects/Unit.js"></script>
+
+    <!-- シーン -->
+    <script src="js/scenes/BootScene.js"></script>
+    <script src="js/scenes/MenuScene.js"></script>
+    <script src="js/scenes/WorldMapScene.js"></script>
+    <script src="js/scenes/GameScene.js"></script>
+    <script src="js/scenes/ResultScene.js"></script>
+    <script src="js/scenes/UpgradeScene.js"></script>
+
+    <!-- メイン初期化 -->
+    <script src="js/main.js"></script>
+</body>
+</html>
