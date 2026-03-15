@@ -1,25 +1,70 @@
-* {
+/* ============================================================
+   css/style.css
+   CYBER DIVE - ローグライクシューター スタイルシート
+   ============================================================ */
+
+/* リセットCSS */
+*, *::before, *::after {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
+/* ページ全体の設定 */
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;  /* スクロールバーを非表示 */
+}
+
 body {
-    background: #1a1a2e;
+    background: #000011;  /* 宇宙空間を表現する暗い背景 */
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    font-family: 'Courier New', monospace;
-    overflow: hidden;
+    font-family: 'Arial', sans-serif;
+    user-select: none;  /* テキスト選択を無効化（ゲーム操作の誤選択防止） */
 }
 
+/* 背景のグリッドパターン（CSS で装飾） */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-image:
+        linear-gradient(rgba(0, 50, 100, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 50, 100, 0.05) 1px, transparent 1px);
+    background-size: 50px 50px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Phaser が描画するキャンバスのコンテナ */
 #game-container {
     position: relative;
+    z-index: 1;
+    /* ドロップシャドウでキャンバスを浮かせる */
+    box-shadow: 0 0 40px rgba(0, 200, 255, 0.15),
+                0 0 80px rgba(0, 100, 200, 0.10);
 }
 
+/* キャンバス要素 */
 canvas {
     display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
+    /* アンチエイリアスを有効にする（スムーズな描画）*/
+    image-rendering: auto;
+}
+
+/* キャンバスにサイバーっぽいボーダーを追加 */
+canvas {
+    border: 1px solid rgba(0, 200, 255, 0.2);
+    outline: none;
+}
+
+/* フォーカス時のアウトラインを消す（ゲームキー入力のため） */
+canvas:focus {
+    outline: none;
+    border-color: rgba(0, 200, 255, 0.5);
 }

@@ -1,671 +1,1052 @@
 // ============================================================
-// GameScene.js - メインゲームプレイシーン
+// js/scenes/GameScene.js
+// メインゲームシーン
+// ゲームプレイの全処理（プレイヤー・敵・武器・UI・タイマー）を統括します
 // ============================================================
 
-const GAME_CONSTANTS = {
-    GROUND_Y: 310,
-    HUD_Y: 330,
-    PLAYER_CASTLE_X: 80,
-    ENEMY_CASTLE_X: 720,
-};
+'use strict';
 
 class GameScene extends Phaser.Scene {
     constructor() {
         super({ key: 'GameScene' });
     }
 
+    // ============================================================
+    // init(data)
+    // 前シーンから受け取ったデータを初期化する
+    // data.stageId  : 選択されたステージ番号（1/2/3）
+    // data.saveData : セーブデータ
+    // ============================================================
     init(data) {
-        this.stageId  = data.stageId !== undefined ? data.stageId : 0;
+        this.stageId  = data.stageId  || 1;
         this.saveData = data.saveData || SaveManager.load();
     }
 
+    // ============================================================
+    // create()
+    // シーン作成・全ゲームオブジェクトの初期化
+    // ============================================================
     create() {
-        const { width: W, height: H } = this.scale;
-        this.GW = W;
-        this.GH = H;
-        this.GROUND_Y = GAME_CONSTANTS.GROUND_Y;
-        this.HUD_Y    = GAME_CONSTANTS.HUD_Y;
+        const W = this.scale.width;
+        const H = this.scale.height;
 
-        // ゲーム状態
-        this.playerUnits = [];
-        this.enemyUnits  = [];
-        this.projectiles = [];
-        this.gameOver    = false;
-        this.paused      = false;
-        this.victoryProcessed = false;
-        this.defeatProcessed  = false;
-        this.battleStartTime  = null;
+        // ステージ設定を取得
+        this.stageConfig = STAGE_CONFIG[this.stageId] || STAGE_CONFIG[1];
 
-        // マナ
-        const castleStats = SaveManager.getCastleStats(this.saveData);
-        this.mana     = 50;
-        this.maxMana  = 100;
-        this.manaRegen = castleStats.manaRegen; // per second
+        // ============================================================
+        // ゲーム状態の初期化
+        // ============================================================
+        this.gameTimeSec   = 0;   // ゲーム経過時間（秒）
+        this.score         = 0;   // スコア
+        this.coinCount     = 0;   // 今回のランで取得したコイン枚数
+        this.isGameOver    = false;
+        this.isPaused      = false;
+        this.midBossDefeated = false;
 
-        // スキル状態
-        this.skills = this.initSkills();
+        // 全ての敵を管理する配列（Enemy・Bossクラスのインスタンス）
+        this.allEnemies = [];
 
-        // 背景
-        const stageData = STAGE_DATA[this.stageId] || STAGE_DATA[0];
-        this.drawBackground(W, H, stageData);
+        // ============================================================
+        // 背景の描画
+        // ============================================================
+        this.drawBackground(W, H);
 
-        // 城
-        this.playerCastle = new Castle(
-            this, GAME_CONSTANTS.PLAYER_CASTLE_X, true, castleStats
-        );
-        this.enemyCastle = new Castle(
-            this, GAME_CONSTANTS.ENEMY_CASTLE_X, false, { maxHp: stageData.castleHp, defense: 0 }
-        );
+        // ============================================================
+        // Phaser の物理グループを作成
+        // bullets       : プレイヤーの弾
+        // enemyBullets  : 敵の弾（スナイパーなど）
+        // xpOrbs        : 経験値オーブ
+        // coins         : コイン
+        // ============================================================
+        this.bullets = this.physics.add.group({
+            classType: Phaser.Physics.Arcade.Sprite,
+            maxSize: 200,  // 最大200発まで同時存在できる
+            runChildUpdate: false
+        });
 
-        // WaveManager
-        this.waveManager = new WaveManager(this, stageData, this.saveData.upgrades);
+        this.enemyBullets = this.physics.add.group({
+            classType: Phaser.Physics.Arcade.Sprite,
+            maxSize: 50,
+            runChildUpdate: false
+        });
 
-        // UIManager
-        this.uiManager = new UIManager(this, this.saveData);
+        this.xpOrbs = this.physics.add.group({
+            classType: Phaser.Physics.Arcade.Sprite,
+            maxSize: 300,
+            runChildUpdate: false
+        });
 
+        this.coinGroup = this.physics.add.group({
+            classType: Phaser.Physics.Arcade.Sprite,
+            maxSize: 100,
+            runChildUpdate: false
+        });
+
+        // ============================================================
+        // プレイヤーの作成
+        // 恒久強化のボーナスを反映する
+        // ============================================================
+        const permBonus = SaveManager.getPermBonus(this.saveData);
+        this.player = new Player(this, W / 2, H - 80, permBonus);
+
+        // ============================================================
+        // 各マネージャーの作成
+        // ============================================================
+        // 武器管理
+        this.weaponManager = new WeaponManager(this, this.player);
+        // 最初から「直線弾」を1つ装備
+        this.weaponManager.addWeapon('straightShot');
+
+        // 経験値・レベルシステム
+        this.levelSystem = new LevelSystem(this, this.player, this.weaponManager);
+
+        // 敵スポーン管理
+        this.enemySpawner = new EnemySpawner(this, this.stageConfig);
+
+        // ============================================================
+        // キーボード入力の設定（WASD + 矢印キー）
+        // ============================================================
+        this.cursors = this.input.keyboard.addKeys({
+            W: Phaser.Input.Keyboard.KeyCodes.W,
+            A: Phaser.Input.Keyboard.KeyCodes.A,
+            S: Phaser.Input.Keyboard.KeyCodes.S,
+            D: Phaser.Input.Keyboard.KeyCodes.D,
+            UP:    Phaser.Input.Keyboard.KeyCodes.UP,
+            DOWN:  Phaser.Input.Keyboard.KeyCodes.DOWN,
+            LEFT:  Phaser.Input.Keyboard.KeyCodes.LEFT,
+            RIGHT: Phaser.Input.Keyboard.KeyCodes.RIGHT,
+        });
+
+        // ============================================================
+        // コリジョン（当たり判定）の設定
+        // ============================================================
+        this.setupCollisions();
+
+        // ============================================================
+        // HUD（ゲーム画面UI）の作成
+        // ============================================================
+        this.createHUD(W, H);
+
+        // ============================================================
+        // ゲームイベントのリスナー設定
+        // ============================================================
+        this.setupEventListeners();
+
+        // ============================================================
         // ポーズボタン
+        // ============================================================
         this.createPauseButton(W);
 
-        // カウントダウン開始
-        this.startCountdown(W, H);
+        // ============================================================
+        // ステージ名を一時的に表示
+        // ============================================================
+        this.showStageName(this.stageConfig.name, W, H);
     }
 
-    initSkills() {
-        const skillNames = ['fireBolt', 'shieldWall', 'arrowRain'];
-        const skills = {};
-        skillNames.forEach(name => {
-            const stats = SaveManager.getSkillStats(this.saveData, name);
-            skills[name] = {
-                ready: true,
-                lastUsed: -999999,
-                cooldown: stats ? stats.cooldown : 15000,
-                stats: stats,
-                active: false,
-            };
-        });
-        return skills;
-    }
-
-    drawBackground(W, H, stageData) {
+    // ============================================================
+    // drawBackground(W, H)
+    // ステージに応じた背景を描画する
+    // ============================================================
+    drawBackground(W, H) {
         const g = this.add.graphics();
+        const bgColor = this.stageConfig.bgColor || 0x0a0a1a;
 
-        // 空
-        const skyColor = stageData.bgColor || 0x4a8f3f;
-        const skyDark = Phaser.Display.Color.IntegerToColor(skyColor);
-        g.fillGradientStyle(0x0a0a1a, 0x0a0a1a, skyColor, skyColor, 1);
-        g.fillRect(0, 0, W, H * 0.7);
+        // ベース背景
+        g.fillStyle(bgColor);
+        g.fillRect(0, 0, W, H);
 
-        // 地面
-        const groundColor = this.blendColor(skyColor, 0x1a1a0a, 0.5);
-        g.fillStyle(groundColor);
-        g.fillRect(0, this.GROUND_Y - 5, W, H - this.GROUND_Y + 5);
+        // 縦方向のグラデーション感（上の方を暗く）
+        g.fillStyle(0x000000, 0.3);
+        g.fillRect(0, 0, W, H * 0.3);
 
-        // 地面のライン
-        g.fillStyle(0x334433);
-        g.fillRect(0, this.GROUND_Y - 5, W, 3);
-
-        // 遠景（山・木など）
-        this.drawFarBackground(g, W, H, stageData.world || 1);
-
-        // 星（夜のワールドは濃く）
-        g.fillStyle(0xffffff, 0.3);
-        for (let i = 0; i < 25; i++) {
-            g.fillRect(Phaser.Math.Between(0, W), Phaser.Math.Between(0, this.GROUND_Y * 0.7), 1, 1);
+        // グリッドライン（SF感）
+        g.lineStyle(1, 0x002222, 0.2);
+        for (let x = 0; x <= W; x += 50) {
+            g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.strokePath();
         }
-    }
-
-    drawFarBackground(g, W, H, world) {
-        const groundY = this.GROUND_Y;
-
-        if (world === 1) {
-            // 草原: 緑の丘
-            g.fillStyle(0x2a4a1a);
-            g.fillEllipse(120, groundY - 20, 200, 80);
-            g.fillEllipse(600, groundY - 15, 180, 60);
-            g.fillStyle(0x1a3a0a);
-            g.fillEllipse(320, groundY - 30, 240, 100);
-        } else if (world === 2) {
-            // 砂漠: 砂丘
-            g.fillStyle(0x7a5a1a);
-            g.fillEllipse(150, groundY - 10, 250, 60);
-            g.fillEllipse(600, groundY - 15, 200, 55);
-            g.fillEllipse(380, groundY - 25, 280, 80);
-        } else if (world === 3) {
-            // 雪山: 白い山
-            g.fillStyle(0xaabbcc);
-            g.fillTriangle(80, groundY - 5, 200, groundY - 100, 320, groundY - 5);
-            g.fillTriangle(500, groundY - 5, 640, groundY - 120, 780, groundY - 5);
-            g.fillStyle(0xeeeeff);
-            g.fillTriangle(130, groundY - 60, 200, groundY - 100, 270, groundY - 60);
-            g.fillTriangle(560, groundY - 70, 640, groundY - 120, 720, groundY - 70);
-        } else if (world === 4) {
-            // 魔の森: 暗い木々
-            for (let i = 0; i < 6; i++) {
-                const tx = 80 + i * 110;
-                g.fillStyle(0x0a1a0a);
-                g.fillTriangle(tx, groundY - 5, tx + 15, groundY - 70, tx + 30, groundY - 5);
-                g.fillRect(tx + 11, groundY - 20, 8, 25);
-            }
-        } else {
-            // 竜の巣: 岩と炎
-            g.fillStyle(0x2a0a00);
-            g.fillRect(0, groundY - 30, W, 30);
-            g.fillStyle(0x3a0a00);
-            for (let i = 0; i < 5; i++) {
-                const rx = 80 + i * 140;
-                g.fillRect(rx, groundY - 70, 30, 65);
-            }
-            // 炎のエフェクト
-            g.fillStyle(0xff4400, 0.4);
-            g.fillRect(0, groundY - 10, W, 10);
-        }
-    }
-
-    blendColor(c1, c2, t) {
-        const r1 = (c1 >> 16) & 0xff, g1 = (c1 >> 8) & 0xff, b1 = c1 & 0xff;
-        const r2 = (c2 >> 16) & 0xff, g2 = (c2 >> 8) & 0xff, b2 = c2 & 0xff;
-        const r = Math.floor(r1 + (r2 - r1) * t);
-        const g = Math.floor(g1 + (g2 - g1) * t);
-        const b = Math.floor(b1 + (b2 - b1) * t);
-        return (r << 16) | (g << 8) | b;
-    }
-
-    startCountdown(W, H) {
-        let count = 3;
-        const cText = this.add.text(W / 2, H * 0.45, `${count}`, {
-            fontSize: '72px',
-            fill: '#ffffff',
-            fontFamily: 'monospace',
-            stroke: '#000000',
-            strokeThickness: 6,
-        }).setOrigin(0.5, 0.5).setDepth(60);
-
-        const countdown = () => {
-            this.tweens.add({
-                targets: cText,
-                scaleX: 1.4,
-                scaleY: 1.4,
-                alpha: 0,
-                duration: 900,
-                onComplete: () => {
-                    count--;
-                    if (count > 0) {
-                        cText.setText(`${count}`).setAlpha(1).setScale(1);
-                        countdown();
-                    } else {
-                        cText.setText('開始！').setAlpha(1).setScale(1)
-                            .setStyle({ fill: '#88ff88', fontSize: '48px' });
-                        this.tweens.add({
-                            targets: cText,
-                            scaleX: 1.5,
-                            scaleY: 1.5,
-                            alpha: 0,
-                            duration: 800,
-                            onComplete: () => cText.destroy()
-                        });
-                        // バトル開始
-                        this.battleStartTime = this.time.now;
-                        this.waveManager.start(this.time.now);
-                    }
-                }
-            });
-        };
-        countdown();
-    }
-
-    createPauseButton(W) {
-        const bg = this.add.graphics().setDepth(30);
-        const draw = (hover) => {
-            bg.clear();
-            bg.fillStyle(hover ? 0x334455 : 0x223344, 0.8);
-            bg.fillRoundedRect(W - 42, 4, 38, 24, 5);
-        };
-        draw(false);
-        this.add.text(W - 23, 16, '⏸', {
-            fontSize: '14px', fill: '#aabbcc',
-        }).setOrigin(0.5, 0.5).setDepth(31);
-
-        const hit = this.add.rectangle(W - 23, 16, 38, 24, 0, 0)
-            .setInteractive({ useHandCursor: true }).setDepth(32);
-        hit.on('pointerover', () => draw(true));
-        hit.on('pointerout', () => draw(false));
-        hit.on('pointerdown', () => this.togglePause());
-
-        this.pauseButton = { bg, hit, draw };
-    }
-
-    togglePause() {
-        this.paused = !this.paused;
-        if (this.paused) {
-            this.showPauseMenu();
-        }
-    }
-
-    showPauseMenu() {
-        const { width: W, height: H } = this.scale;
-        const overlay = this.add.graphics().setDepth(70);
-        overlay.fillStyle(0x000000, 0.6);
-        overlay.fillRect(0, 0, W, H);
-
-        const dlgW = 260, dlgH = 180;
-        overlay.fillStyle(0x111133);
-        overlay.fillRoundedRect(W / 2 - dlgW / 2, H / 2 - dlgH / 2, dlgW, dlgH, 10);
-        overlay.lineStyle(2, 0x4466aa);
-        overlay.strokeRoundedRect(W / 2 - dlgW / 2, H / 2 - dlgH / 2, dlgW, dlgH, 10);
-
-        const title = this.add.text(W / 2, H / 2 - 60, 'ポーズ中', {
-            fontSize: '22px', fill: '#ffffff', fontFamily: 'monospace',
-        }).setOrigin(0.5, 0.5).setDepth(71);
-
-        const resumeBtn = this.createPauseMenuButton(W / 2, H / 2 - 15, 160, 36, '再開', 0x224422, 0x336633, () => {
-            overlay.destroy(); title.destroy(); resumeBtn.destroy(); retireBtn.destroy();
-            this.paused = false;
-        });
-
-        const retireBtn = this.createPauseMenuButton(W / 2, H / 2 + 35, 160, 36, 'リタイア', 0x441111, 0x662222, () => {
-            this.scene.start('WorldMapScene');
-        });
-    }
-
-    createPauseMenuButton(x, y, w, h, label, bgColor, hoverColor, callback) {
-        const container = this.add.container(0, 0).setDepth(72);
-        const bg = this.add.graphics().setDepth(72);
-        const draw = (hover) => {
-            bg.clear();
-            bg.fillStyle(hover ? hoverColor : bgColor);
-            bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
-            bg.lineStyle(1, 0x8899aa);
-            bg.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 6);
-        };
-        draw(false);
-        const txt = this.add.text(x, y, label, {
-            fontSize: '15px', fill: '#ffffff', fontFamily: 'monospace',
-        }).setOrigin(0.5, 0.5).setDepth(73);
-
-        const hit = this.add.rectangle(x, y, w, h, 0, 0)
-            .setInteractive({ useHandCursor: true }).setDepth(74);
-        hit.on('pointerover', () => draw(true));
-        hit.on('pointerout', () => draw(false));
-        hit.on('pointerdown', callback);
-
-        return { destroy: () => { bg.destroy(); txt.destroy(); hit.destroy(); } };
-    }
-
-    update(time, delta) {
-        if (this.gameOver) return;
-        if (this.paused) return;
-        if (this.battleStartTime === null) return; // カウントダウン中
-
-        // マナ回復
-        this.mana = Math.min(this.maxMana, this.mana + this.manaRegen * (delta / 1000));
-
-        // ウェーブ更新
-        this.waveManager.update(time);
-
-        // ユニット更新（死亡済みをフィルタ）
-        this.playerUnits = this.playerUnits.filter(u => !u.isDead);
-        this.enemyUnits  = this.enemyUnits.filter(u => !u.isDead);
-
-        this.playerUnits.forEach(u => u.update(time, delta));
-        this.enemyUnits.forEach(u => u.update(time, delta));
-
-        // 射撃物更新
-        this.projectiles = this.projectiles.filter(p => !p.destroyed);
-        this.projectiles.forEach(p => p.update(delta));
-
-        // 勝利条件チェック
-        if (this.enemyCastle.isDestroyed() && !this.victoryProcessed) {
-            this.victoryProcessed = true;
-            this.time.delayedCall(600, () => this.onVictory());
+        for (let y = 0; y <= H; y += 50) {
+            g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.strokePath();
         }
 
-        // 敗北条件チェック
-        if (this.playerCastle.isDestroyed() && !this.defeatProcessed) {
-            this.defeatProcessed = true;
-            this.time.delayedCall(600, () => this.onDefeat());
+        // 星（ランダム配置）
+        g.fillStyle(0xffffff, 0.6);
+        for (let i = 0; i < 60; i++) {
+            const sz = Math.random() < 0.15 ? 2 : 1;
+            g.fillRect(Phaser.Math.Between(0, W), Phaser.Math.Between(0, H * 0.8), sz, sz);
         }
-
-        // 全ウェーブ終了 & 敵が全滅 → 勝利
-        if (
-            this.waveManager.isComplete() &&
-            this.enemyUnits.length === 0 &&
-            !this.victoryProcessed &&
-            !this.defeatProcessed &&
-            !this.enemyCastle.isDestroyed()
-        ) {
-            // ウェーブ全完了＆敵全滅 → 続行（敵城を攻めるだけ）
-        }
-
-        // スキルクールダウン
-        this.updateSkillCooldowns(time);
-
-        // HUD更新
-        this.uiManager.update(time);
-    }
-
-    updateSkillCooldowns(time) {
-        Object.keys(this.skills).forEach(name => {
-            const skill = this.skills[name];
-            if (!skill.ready) {
-                if (time - skill.lastUsed >= skill.cooldown) {
-                    skill.ready = true;
-                }
-            }
-        });
     }
 
     // ============================================================
-    // ユニットデプロイ
+    // setupCollisions()
+    // 各オブジェクト間の当たり判定を設定する
     // ============================================================
-    deployUnit(unitKey) {
-        if (this.gameOver || this.paused || this.battleStartTime === null) return;
+    setupCollisions() {
+        // プレイヤーの弾と敵オブジェクトの当たり判定は
+        // update() 内で手動チェックする（物理グループが敵を含まないため）
 
-        const config = UNIT_DATA[unitKey];
-        if (!config) return;
+        // 敵の弾とプレイヤーの当たり判定
+        this.physics.add.overlap(
+            this.player.sprite,
+            this.enemyBullets,
+            (playerSprite, bulletSprite) => {
+                const dmg = bulletSprite.damage || 10;
+                this.player.takeDamage(dmg);
+                bulletSprite.setActive(false).setVisible(false);
+                bulletSprite.body.setVelocity(0, 0);
+            },
+            null, this
+        );
 
-        // マナチェック
-        if (this.mana < config.cost) {
-            this.uiManager.showMessage('マナが足りない！', 800, '#ff8844');
-            return;
-        }
+        // プレイヤーとXPオーブのオーバーラップ
+        this.physics.add.overlap(
+            this.player.sprite,
+            this.xpOrbs,
+            (playerSprite, orbSprite) => {
+                if (!orbSprite.active) return;
+                this.levelSystem.addXp(orbSprite.xpValue || 10);
+                orbSprite.setActive(false).setVisible(false);
+            },
+            null, this
+        );
 
-        // レベルチェック
-        const reqLv = UNIT_UNLOCK_LEVEL[unitKey] || 1;
-        if (this.saveData.playerLevel < reqLv) {
-            this.uiManager.showMessage(`Lv${reqLv}で解放されます`, 1000, '#ffaa44');
-            return;
-        }
-
-        this.mana -= config.cost;
-
-        // アップグレード済みステータス取得
-        const unitUpgrades = this.saveData.upgrades[unitKey] || {};
-        const spawnX = GAME_CONSTANTS.PLAYER_CASTLE_X + 60;
-        const groundY = this.GROUND_Y;
-        const spawnY = config.isFlying ? groundY - 30 : groundY - 10;
-
-        const unit = new Unit(this, spawnX, spawnY, config, false, unitUpgrades);
-        this.playerUnits.push(unit);
-
-        // スポーンエフェクト
-        this.createSpawnEffect(spawnX, spawnY, true);
-    }
-
-    createSpawnEffect(x, y, isPlayer) {
-        const p = this.add.graphics().setDepth(16);
-        const col = isPlayer ? 0x4488ff : 0xff4400;
-        p.lineStyle(2, col, 1);
-        p.strokeCircle(x, y, 8);
-        this.tweens.add({
-            targets: p,
-            scaleX: 2.5,
-            scaleY: 2.5,
-            alpha: 0,
-            duration: 400,
-            onComplete: () => p.destroy()
-        });
-    }
-
-    // ============================================================
-    // スキル
-    // ============================================================
-    useSkill(skillName) {
-        if (this.gameOver || this.paused || this.battleStartTime === null) return;
-
-        const skill = this.skills[skillName];
-        if (!skill || !skill.stats) {
-            this.uiManager.showMessage('スキルが未解放です', 1000, '#ff8844');
-            return;
-        }
-        if (!skill.ready) {
-            this.uiManager.showMessage('クールダウン中...', 600, '#ff8844');
-            return;
-        }
-
-        skill.ready = false;
-        skill.lastUsed = this.time.now;
-
-        switch (skillName) {
-            case 'fireBolt':   this.fireFireBolt(skill.stats); break;
-            case 'shieldWall': this.activateShieldWall(skill.stats); break;
-            case 'arrowRain':  this.fireArrowRain(skill.stats); break;
-        }
-
-        this.uiManager.showMessage(
-            { fireBolt: '🔥 火炎弾！', shieldWall: '🛡 鉄壁！', arrowRain: '🏹 矢雨！' }[skillName],
-            1200, '#ffee44'
+        // プレイヤーとコインのオーバーラップ
+        this.physics.add.overlap(
+            this.player.sprite,
+            this.coinGroup,
+            (playerSprite, coinSprite) => {
+                if (!coinSprite.active) return;
+                const earned = Math.round((coinSprite.coinValue || 1) * this.player.coinMultiplier);
+                this.coinCount += earned;
+                this.updateCoinHUD();
+                coinSprite.setActive(false).setVisible(false);
+            },
+            null, this
         );
     }
 
-    fireFireBolt(stats) {
-        // 最も前にいる敵グループに範囲ダメージ
-        const { width: W } = this.scale;
-        const targetX = this.findFurthestEnemy();
-
-        // エフェクト
-        const fireG = this.add.graphics().setDepth(40);
-        fireG.fillStyle(0xff4400, 0.8);
-        fireG.fillCircle(targetX, this.GROUND_Y - 30, stats.radius);
-        fireG.fillStyle(0xff8800, 0.6);
-        fireG.fillCircle(targetX, this.GROUND_Y - 30, stats.radius * 0.6);
-        fireG.fillStyle(0xffee00, 0.9);
-        fireG.fillCircle(targetX, this.GROUND_Y - 30, stats.radius * 0.3);
-
-        this.tweens.add({
-            targets: fireG,
-            scaleX: 1.5,
-            scaleY: 1.5,
-            alpha: 0,
-            duration: 500,
-            onComplete: () => fireG.destroy()
+    // ============================================================
+    // setupEventListeners()
+    // ゲームイベントのリスナーを設定する
+    // ============================================================
+    setupEventListeners() {
+        // プレイヤー死亡イベント
+        this.events.on('playerDead', () => {
+            this.onGameOver(false);
         });
 
-        // ダメージ
-        this.enemyUnits.forEach(unit => {
-            if (!unit.isDead) {
-                const dx = unit.x - targetX;
-                const dy = unit.y - this.GROUND_Y;
-                if (Math.sqrt(dx * dx + dy * dy) <= stats.radius) {
-                    unit.takeDamage(stats.damage);
+        // 敵撃破イベント（スコア加算）
+        this.events.on('enemyKilled', (data) => {
+            this.score += data.score;
+            this.allEnemies = this.allEnemies.filter(e => !e.isDead);
+        });
+
+        // ボス死亡イベント
+        this.events.on('bossDead', (data) => {
+            this.enemySpawner.onBossDefeated(data.type);
+            if (data.isMidBoss) this.midBossDefeated = true;
+            if (data.isFinalBoss) {
+                // 最終ボスを倒したらステージクリア
+                this.time.delayedCall(1500, () => this.onGameOver(true));
+            }
+        });
+
+        // レベルアップイベント
+        this.events.on('levelUp', (data) => {
+            this.onLevelUp(data);
+        });
+
+        // UpgradeSceneから選択結果を受け取る
+        this.events.on('upgradeChosen', (choice) => {
+            this.levelSystem.applyChoice(choice);
+            this.isPaused = false;
+            this.physics.resume();
+        });
+    }
+
+    // ============================================================
+    // createHUD(W, H)
+    // HPバー・XPバー・タイマー・コイン・レベルなどのHUDを作成する
+    // ============================================================
+    createHUD(W, H) {
+        // HUD は画面下部に配置（scrollFactor = 0 でカメラに追従しない固定UI）
+
+        // --- HPバー ---
+        const hpBarX = 10;
+        const hpBarY = H - 36;
+        const hpBarW = 200;
+        const hpBarH = 14;
+
+        this.hpBarBg = this.add.graphics().setScrollFactor(0).setDepth(90);
+        this.hpBarBg.fillStyle(0x220000);
+        this.hpBarBg.fillRoundedRect(hpBarX, hpBarY, hpBarW, hpBarH, 3);
+
+        this.hpBarFill = this.add.graphics().setScrollFactor(0).setDepth(91);
+
+        this.hpLabel = this.add.text(hpBarX, hpBarY - 14, 'HP', {
+            fontSize: '12px', fontFamily: 'Arial, sans-serif', color: '#ff6666'
+        }).setScrollFactor(0).setDepth(92);
+
+        this.hpText = this.add.text(hpBarX + hpBarW + 5, hpBarY, '100/100', {
+            fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#ffaaaa'
+        }).setScrollFactor(0).setDepth(92);
+
+        // --- XPバー ---
+        const xpBarX = 10;
+        const xpBarY = H - 18;
+        const xpBarW = 200;
+        const xpBarH = 10;
+
+        this.xpBarBg = this.add.graphics().setScrollFactor(0).setDepth(90);
+        this.xpBarBg.fillStyle(0x001133);
+        this.xpBarBg.fillRoundedRect(xpBarX, xpBarY, xpBarW, xpBarH, 3);
+
+        this.xpBarFill = this.add.graphics().setScrollFactor(0).setDepth(91);
+
+        this.xpLabel = this.add.text(xpBarX, xpBarY - 12, 'XP', {
+            fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#44ff88'
+        }).setScrollFactor(0).setDepth(92);
+
+        // --- レベル・タイマー・スコア表示 ---
+        this.levelText = this.add.text(W / 2, H - 30, 'Lv.1', {
+            fontSize: '16px', fontFamily: 'Arial Black, sans-serif',
+            color: '#ffffff', stroke: '#000000', strokeThickness: 3
+        }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(92);
+
+        this.timerText = this.add.text(W / 2, 12, '00:00', {
+            fontSize: '22px', fontFamily: 'Arial, sans-serif',
+            color: '#ffffff', stroke: '#000000', strokeThickness: 3
+        }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(92);
+
+        this.coinText = this.add.text(W - 10, H - 36, '💰 0', {
+            fontSize: '16px', fontFamily: 'Arial, sans-serif',
+            color: '#ffcc00', stroke: '#443300', strokeThickness: 2
+        }).setOrigin(1, 0).setScrollFactor(0).setDepth(92);
+
+        this.scoreText = this.add.text(W - 10, H - 18, 'Score: 0', {
+            fontSize: '12px', fontFamily: 'Arial, sans-serif',
+            color: '#aaaacc', stroke: '#000000', strokeThickness: 2
+        }).setOrigin(1, 0).setScrollFactor(0).setDepth(92);
+
+        // --- 武器表示エリア（画面右上）---
+        this.weaponListText = this.add.text(W - 10, 40, '', {
+            fontSize: '12px', fontFamily: 'Arial, sans-serif',
+            color: '#aaccff', align: 'right',
+            lineSpacing: 3
+        }).setOrigin(1, 0).setScrollFactor(0).setDepth(92);
+
+        // 初回更新
+        this.updateHPBar();
+        this.updateXPBar();
+        this.updateWeaponList();
+    }
+
+    // ============================================================
+    // createPauseButton(W)
+    // 画面右上にポーズボタンを作成する
+    // ============================================================
+    createPauseButton(W) {
+        const bg = this.add.graphics().setScrollFactor(0).setDepth(95);
+        const drawBtn = (hover) => {
+            bg.clear();
+            bg.fillStyle(hover ? 0x334455 : 0x112233, 0.85);
+            bg.fillRoundedRect(W - 56, 6, 48, 26, 5);
+        };
+        drawBtn(false);
+
+        this.add.text(W - 32, 19, '⏸ 停止', {
+            fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#aabbcc'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(96);
+
+        const hit = this.add.rectangle(W - 32, 19, 48, 26, 0, 0)
+            .setInteractive({ useHandCursor: true })
+            .setScrollFactor(0).setDepth(97);
+        hit.on('pointerover', () => drawBtn(true));
+        hit.on('pointerout',  () => drawBtn(false));
+        hit.on('pointerdown', () => this.showPauseMenu());
+    }
+
+    // ============================================================
+    // showStageName(name, W, H)
+    // ステージ開始時にステージ名を一時的に表示する
+    // ============================================================
+    showStageName(name, W, H) {
+        const txt = this.add.text(W / 2, H / 2, name, {
+            fontSize: '28px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#00ffff',
+            stroke: '#004444',
+            strokeThickness: 4
+        }).setOrigin(0.5).setDepth(50);
+
+        this.tweens.add({
+            targets: txt,
+            alpha: 0,
+            y: H / 2 - 50,
+            delay: 1500,
+            duration: 800,
+            onComplete: () => txt.destroy()
+        });
+    }
+
+    // ============================================================
+    // update(time, delta)
+    // 毎フレーム呼ばれるメインゲームループ
+    // ============================================================
+    update(time, delta) {
+        if (this.isGameOver || this.isPaused) return;
+
+        // ゲーム経過時間を更新（ms → 秒に変換）
+        this.gameTimeSec += delta / 1000;
+
+        // ============================================================
+        // プレイヤーの更新（移動・無敵時間・HP回復）
+        // ============================================================
+        this.player.update(this.cursors, delta);
+
+        // ============================================================
+        // 武器の自動発射（WeaponManagerが管理）
+        // ============================================================
+        this.weaponManager.update(time, delta);
+
+        // ============================================================
+        // 敵のスポーンと更新
+        // ============================================================
+        this.enemySpawner.update(time, this.gameTimeSec, delta);
+
+        // 全ての敵を更新（移動・攻撃パターン）
+        for (const enemy of this.allEnemies) {
+            if (!enemy.isDead && enemy.sprite.active) {
+                enemy.update(this.player, delta);
+            }
+        }
+
+        // ============================================================
+        // プレイヤーの弾と敵の当たり判定（手動チェック）
+        // ============================================================
+        this.checkBulletEnemyCollisions();
+
+        // ============================================================
+        // 敵とプレイヤーの接触ダメージ
+        // ============================================================
+        this.checkEnemyPlayerCollisions();
+
+        // ============================================================
+        // XPオーブ・コインの自動吸収（磁力エフェクト）
+        // ============================================================
+        this.updateItemAttraction(delta);
+
+        // ============================================================
+        // 追尾弾・ミサイルの更新（弾ごとに独自の動きがある）
+        // ============================================================
+        this.updateBullets(delta);
+
+        // ============================================================
+        // 死んでいる敵を配列から除去（毎フレームでなく定期的に）
+        // ============================================================
+        if (Math.random() < 0.05) { // 5% の確率で実行（毎フレームはコスト高）
+            this.allEnemies = this.allEnemies.filter(e => !e.isDead);
+        }
+
+        // ============================================================
+        // HUDの更新
+        // ============================================================
+        this.updateHUD();
+    }
+
+    // ============================================================
+    // checkBulletEnemyCollisions()
+    // プレイヤーの弾と敵の当たり判定を手動でチェックする
+    // ============================================================
+    checkBulletEnemyCollisions() {
+        this.bullets.children.iterate(bulletSprite => {
+            if (!bulletSprite || !bulletSprite.active) return;
+
+            for (const enemy of this.allEnemies) {
+                if (enemy.isDead || !enemy.sprite.active) continue;
+
+                // 簡易当たり判定（矩形の距離チェック）
+                const dx = bulletSprite.x - enemy.getX();
+                const dy = bulletSprite.y - enemy.getY();
+                const hitDist = (enemy.size || 20) * 0.6 + 4;
+
+                if (Math.abs(dx) < hitDist && Math.abs(dy) < hitDist) {
+                    // 弾のダメージを取得
+                    const bulletRef = bulletSprite.bulletRef;
+                    const dmg = bulletRef ? bulletRef.damage : 10;
+
+                    // 敵にダメージ
+                    const died = enemy.takeDamage(dmg);
+
+                    // ヒットエフェクト
+                    this.createHitEffect(bulletSprite.x, bulletSprite.y, bulletSprite.tintTopLeft || 0xffffff);
+
+                    // 弾の処理（貫通するかどうか）
+                    let removeBullet = true;
+                    if (bulletRef) {
+                        removeBullet = bulletRef.onHitEnemy(enemy);
+                    }
+
+                    if (removeBullet) {
+                        bulletSprite.setActive(false).setVisible(false);
+                        if (bulletSprite.body) bulletSprite.body.setVelocity(0, 0);
+                        return; // この弾のチェックを終了
+                    }
                 }
             }
         });
-
-        // カメラシェイク
-        this.cameras.main.shake(200, 0.01);
     }
 
-    activateShieldWall(stats) {
-        this.playerCastle.activateShield();
-        const originalDefense = this.playerCastle.defense;
-        this.playerCastle.defense += 30;
+    // ============================================================
+    // checkEnemyPlayerCollisions()
+    // 敵がプレイヤーに触れたときのダメージ処理
+    // ============================================================
+    checkEnemyPlayerCollisions() {
+        const px = this.player.getX();
+        const py = this.player.getY();
+        const playerHitRadius = 14;
 
-        // エフェクト
-        const shieldG = this.add.graphics().setDepth(40);
-        shieldG.lineStyle(3, 0x44aaff, 0.9);
-        shieldG.strokeRect(20, 150, 120, 180);
+        for (const enemy of this.allEnemies) {
+            if (enemy.isDead || !enemy.sprite.active) continue;
 
-        this.time.delayedCall(stats.duration, () => {
-            this.playerCastle.deactivateShield();
-            this.playerCastle.defense = originalDefense;
-            shieldG.destroy();
-        });
+            const dx = enemy.getX() - px;
+            const dy = enemy.getY() - py;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const hitDist = playerHitRadius + (enemy.size || 20) * 0.4;
 
-        this.tweens.add({
-            targets: shieldG,
-            alpha: 0.3,
-            duration: stats.duration / 2,
-            yoyo: true,
-        });
-    }
-
-    fireArrowRain(stats) {
-        // 全敵にダメージ
-        this.enemyUnits.forEach(unit => {
-            if (!unit.isDead) {
-                unit.takeDamage(stats.damage);
+            if (dist < hitDist) {
+                this.player.takeDamage(enemy.damage);
             }
-        });
-
-        // 矢雨エフェクト
-        const { width: W } = this.scale;
-        for (let i = 0; i < 12; i++) {
-            const delay = i * 60;
-            const ax = Phaser.Math.Between(120, W - 120);
-            this.time.delayedCall(delay, () => {
-                const arrowG = this.add.graphics().setDepth(40);
-                arrowG.fillStyle(0xddbb44);
-                arrowG.fillRect(ax - 1, 0, 2, 50);
-                arrowG.fillTriangle(ax - 4, 50, ax + 4, 50, ax, 60);
-                this.tweens.add({
-                    targets: arrowG,
-                    y: this.GROUND_Y - 10,
-                    duration: 300,
-                    onComplete: () => arrowG.destroy()
-                });
-            });
         }
     }
 
-    findFurthestEnemy() {
-        // 最も前方（自城に近い）の敵の位置を返す
-        let minX = GAME_CONSTANTS.ENEMY_CASTLE_X;
-        this.enemyUnits.forEach(unit => {
-            if (!unit.isDead && unit.x < minX) {
-                minX = unit.x;
+    // ============================================================
+    // updateItemAttraction(delta)
+    // XPオーブ・コインがプレイヤーの吸収範囲内に入ったら引き寄せる
+    // ============================================================
+    updateItemAttraction(delta) {
+        const px = this.player.getX();
+        const py = this.player.getY();
+        const pickupR = this.player.pickupRadius;
+        const pickupRSq = pickupR * pickupR;
+        const attractSpeed = 300;
+
+        // XPオーブの引き寄せ
+        this.xpOrbs.children.iterate(orb => {
+            if (!orb || !orb.active) return;
+            const dx = px - orb.x;
+            const dy = py - orb.y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < pickupRSq) {
+                const dist = Math.sqrt(distSq);
+                orb.body.setVelocity(
+                    (dx / dist) * attractSpeed,
+                    (dy / dist) * attractSpeed
+                );
+            } else if (orb.body.speed > 0) {
+                orb.body.setVelocity(0, 0);
             }
         });
-        return Math.max(200, Math.min(minX, GAME_CONSTANTS.ENEMY_CASTLE_X - 50));
+
+        // コインの引き寄せ
+        this.coinGroup.children.iterate(coin => {
+            if (!coin || !coin.active) return;
+            const dx = px - coin.x;
+            const dy = py - coin.y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < pickupRSq) {
+                const dist = Math.sqrt(distSq);
+                coin.body.setVelocity(
+                    (dx / dist) * attractSpeed,
+                    (dy / dist) * attractSpeed
+                );
+            } else if (coin.body.speed > 0) {
+                coin.body.setVelocity(0, 0);
+            }
+        });
     }
 
     // ============================================================
-    // 勝利・敗北
+    // updateBullets(delta)
+    // 追尾弾・ミサイルストーム弾の更新処理
     // ============================================================
-    onVictory() {
-        if (this.gameOver) return;
-        this.gameOver = true;
+    updateBullets(delta) {
+        this.bullets.children.iterate(bulletSprite => {
+            if (!bulletSprite || !bulletSprite.active) return;
+            const ref = bulletSprite.bulletRef;
+            if (ref) ref.update(delta, this.allEnemies);
+        });
+    }
 
-        // カメラエフェクト
-        this.cameras.main.shake(300, 0.015);
+    // ============================================================
+    // updateHUD()
+    // 毎フレームHUDを最新の状態に更新する
+    // ============================================================
+    updateHUD() {
+        this.updateHPBar();
+        this.updateXPBar();
 
-        // 全ユニットを止める
-        this.playerUnits.forEach(u => u.isDead = true);
-        this.enemyUnits.forEach(u => u.isDead = true);
+        // タイマー（mm:ss 形式）
+        const totalSec = Math.floor(this.gameTimeSec);
+        const min = Math.floor(totalSec / 60);
+        const sec = totalSec % 60;
+        this.timerText.setText(
+            `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+        );
 
-        // スコア計算
-        const hpRatio = this.playerCastle.hp / this.playerCastle.maxHp;
-        const stars = hpRatio >= 0.66 ? 3 : hpRatio >= 0.33 ? 2 : 1;
-        const stage = STAGE_DATA[this.stageId];
-        const baseExp  = stage ? stage.rewards.exp : 50;
-        const baseGold = stage ? stage.rewards.gold : 100;
+        // レベル表示
+        this.levelText.setText(`Lv.${this.levelSystem.level}`);
 
-        // 星ボーナス（3★で1.5倍、2★で1.2倍）
-        const starMulti = stars === 3 ? 1.5 : stars === 2 ? 1.2 : 1.0;
-        const expGained  = Math.floor(baseExp * starMulti);
-        const goldGained = Math.floor(baseGold * starMulti);
+        // スコア表示
+        this.scoreText.setText(`Score: ${this.score}`);
+    }
 
-        // セーブデータ更新
-        this.saveData.gold += goldGained;
-        const leveledUp = SaveManager.addExp(this.saveData, expGained);
-        SaveManager.onStageClear(this.saveData, this.stageId, stars);
-        SaveManager.save(this.saveData);
+    // ============================================================
+    // updateHPBar()
+    // HPバーの色とサイズを更新する
+    // ============================================================
+    updateHPBar() {
+        const H = this.scale.height;
+        const hpRatio = this.player.getHpRatio();
+        const barW = 200;
+        const barH = 14;
+        const barX = 10;
+        const barY = H - 36;
 
-        // 勝利エフェクト
-        this.showVictoryEffect(() => {
-            this.scene.start('ResultScene', {
-                stageId:    this.stageId,
-                isVictory:  true,
-                hpRatio,
-                expGained,
-                goldGained,
-                leveledUp,
+        // HPに応じて色が変わる（高: 緑 → 中: 黄 → 低: 赤）
+        let color = 0x00ff44;
+        if (hpRatio < 0.5) color = 0xffff00;
+        if (hpRatio < 0.25) color = 0xff2200;
+
+        this.hpBarFill.clear();
+        this.hpBarFill.fillStyle(color);
+        this.hpBarFill.fillRoundedRect(barX, barY, Math.max(2, Math.round(barW * hpRatio)), barH, 3);
+
+        this.hpText.setText(`${this.player.hp}/${this.player.maxHp}`);
+    }
+
+    // ============================================================
+    // updateXPBar()
+    // XPバーのサイズを更新する
+    // ============================================================
+    updateXPBar() {
+        const H = this.scale.height;
+        const xpRatio = this.levelSystem.getXpRatio();
+        const barW = 200;
+        const barH = 10;
+        const barX = 10;
+        const barY = H - 18;
+
+        this.xpBarFill.clear();
+        this.xpBarFill.fillStyle(0x00ff88);
+        this.xpBarFill.fillRoundedRect(barX, barY, Math.max(1, Math.round(barW * xpRatio)), barH, 3);
+    }
+
+    // ============================================================
+    // updateCoinHUD()
+    // コイン数表示を更新する
+    // ============================================================
+    updateCoinHUD() {
+        this.coinText.setText(`💰 ${this.coinCount}`);
+    }
+
+    // ============================================================
+    // updateWeaponList()
+    // 所持武器一覧をHUDに表示する
+    // ============================================================
+    updateWeaponList() {
+        const weapons = this.weaponManager.getWeaponList();
+        const lines = weapons.map(w => {
+            const star = w.isUltimate ? '★' : '  ';
+            return `${star} ${w.name} Lv${w.level}`;
+        });
+        this.weaponListText.setText(lines.join('\n') || '武器なし');
+    }
+
+    // ============================================================
+    // onLevelUp(data)
+    // レベルアップ時の処理
+    // GameSceneを停止してUpgradeSceneを起動する
+    // ============================================================
+    onLevelUp(data) {
+        if (this.isPaused || this.isGameOver) return;
+
+        this.isPaused = true;
+        this.physics.pause(); // 物理エンジンを停止（弾・敵が止まる）
+
+        // レベルアップエフェクト
+        this.showLevelUpEffect(data.level);
+
+        // 少し待ってからUpgradeSceneを起動する（演出のため）
+        this.time.delayedCall(400, () => {
+            // UpgradeScene をこのシーンの上に起動（GameSceneは一時停止のまま）
+            this.scene.launch('UpgradeScene', {
+                choices: data.choices,
+                level:   data.level
             });
         });
     }
 
-    onDefeat() {
-        if (this.gameOver) return;
-        this.gameOver = true;
+    // ============================================================
+    // showLevelUpEffect(level)
+    // レベルアップ時のエフェクト表示
+    // ============================================================
+    showLevelUpEffect(level) {
+        const W = this.scale.width;
+        const H = this.scale.height;
 
-        // カメラエフェクト
-        this.cameras.main.shake(400, 0.02);
-
-        // 敗北エフェクト
-        this.showDefeatEffect(() => {
-            this.scene.start('ResultScene', {
-                stageId:    this.stageId,
-                isVictory:  false,
-                hpRatio:    0,
-                expGained:  0,
-                goldGained: 0,
-                leveledUp:  false,
-            });
-        });
-    }
-
-    showVictoryEffect(callback) {
-        const { width: W, height: H } = this.scale;
-
-        // 金色フラッシュ
-        const flash = this.add.graphics().setDepth(50);
-        flash.fillStyle(0xffee00, 0.3);
-        flash.fillRect(0, 0, W, H);
-        this.tweens.add({
-            targets: flash,
-            alpha: 0,
-            duration: 500,
-        });
-
-        // 勝利テキスト
-        const txt = this.add.text(W / 2, H * 0.4, '勝利！', {
-            fontSize: '64px',
-            fill: '#ffee44',
-            fontFamily: 'monospace',
-            stroke: '#884400',
-            strokeThickness: 6,
-        }).setOrigin(0.5, 0.5).setDepth(51).setAlpha(0);
+        const txt = this.add.text(W / 2, H / 2, `LEVEL UP! Lv.${level}`, {
+            fontSize: '30px',
+            fontFamily: 'Arial Black, sans-serif',
+            color: '#ffff00',
+            stroke: '#886600',
+            strokeThickness: 4
+        }).setOrigin(0.5).setDepth(50);
 
         this.tweens.add({
             targets: txt,
-            alpha: 1,
-            scaleX: 1.2,
-            scaleY: 1.2,
+            y: H / 2 - 60,
+            alpha: 0,
             duration: 400,
-            yoyo: true,
-            repeat: 1,
+            delay: 100,
+            onComplete: () => txt.destroy()
         });
 
-        this.time.delayedCall(1500, callback);
-    }
-
-    showDefeatEffect(callback) {
-        const { width: W, height: H } = this.scale;
-
-        // 赤いフラッシュ
-        const flash = this.add.graphics().setDepth(50);
-        flash.fillStyle(0xff0000, 0.4);
+        // 画面フラッシュ
+        const flash = this.add.graphics().setDepth(49);
+        flash.fillStyle(0xffff00, 0.15);
         flash.fillRect(0, 0, W, H);
         this.tweens.add({
             targets: flash,
             alpha: 0,
-            duration: 800,
+            duration: 400,
+            onComplete: () => flash.destroy()
+        });
+    }
+
+    // ============================================================
+    // dropXpOrb(x, y, xpValue)
+    // XPオーブをドロップする（Enemy.dieから呼ばれる）
+    // ============================================================
+    dropXpOrb(x, y, xpValue) {
+        const orb = this.xpOrbs.get(x, y, 'xp_orb');
+        if (!orb) return;
+
+        orb.setActive(true).setVisible(true);
+        orb.setDepth(3);
+        orb.xpValue = xpValue;
+
+        // 少しランダムに飛び散る
+        orb.body.setVelocity(
+            Phaser.Math.Between(-60, 60),
+            Phaser.Math.Between(-80, -20)
+        );
+        // 重力なし、空気抵抗を設定して自然に止まる
+        orb.body.setDrag(200, 200);
+    }
+
+    // ============================================================
+    // dropCoin(x, y, amount)
+    // コインをドロップする（Enemy.dieから呼ばれる）
+    // ============================================================
+    dropCoin(x, y, amount) {
+        const coin = this.coinGroup.get(x, y, 'coin');
+        if (!coin) return;
+
+        coin.setActive(true).setVisible(true);
+        coin.setDepth(3);
+        coin.coinValue = amount;
+
+        coin.body.setVelocity(
+            Phaser.Math.Between(-50, 50),
+            Phaser.Math.Between(-70, -15)
+        );
+        coin.body.setDrag(180, 180);
+    }
+
+    // ============================================================
+    // createHitEffect(x, y, color)
+    // 弾が敵に当たったときのヒットエフェクトを表示する
+    // ============================================================
+    createHitEffect(x, y, color) {
+        const g = this.add.graphics();
+        g.setDepth(18);
+        g.fillStyle(color, 0.8);
+        g.fillCircle(0, 0, 5);
+        g.x = x;
+        g.y = y;
+
+        this.tweens.add({
+            targets: g,
+            scaleX: 2, scaleY: 2,
+            alpha: 0,
+            duration: 200,
+            onComplete: () => g.destroy()
+        });
+    }
+
+    // ============================================================
+    // showBossAlert(bossType)
+    // ボス出現時の警告メッセージを表示する
+    // ============================================================
+    showBossAlert(bossType) {
+        const W = this.scale.width;
+        const H = this.scale.height;
+
+        const messages = {
+            miniBoss:  'BOSS INCOMING!',
+            midBoss:   '★ 中ボス出現！ ★',
+            finalBoss: '★★★ 魔王降臨！ ★★★'
+        };
+
+        const colors = {
+            miniBoss:  '#ff8800',
+            midBoss:   '#ff4488',
+            finalBoss: '#ff0000'
+        };
+
+        const txt = this.add.text(W / 2, H * 0.35, messages[bossType] || 'BOSS!', {
+            fontSize: bossType === 'finalBoss' ? '34px' : '28px',
+            fontFamily: 'Arial Black, sans-serif',
+            color: colors[bossType] || '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 5
+        }).setOrigin(0.5).setDepth(50);
+
+        // 点滅→消える
+        this.tweens.add({
+            targets: txt,
+            alpha: { from: 1, to: 0.2 },
+            duration: 200,
+            yoyo: true,
+            repeat: 4,
+            onComplete: () => {
+                this.tweens.add({
+                    targets: txt,
+                    alpha: 0,
+                    y: H * 0.25,
+                    duration: 500,
+                    onComplete: () => txt.destroy()
+                });
+            }
         });
 
-        // 敗北テキスト
-        const txt = this.add.text(W / 2, H * 0.4, '敗北...', {
-            fontSize: '56px',
-            fill: '#ff4444',
-            fontFamily: 'monospace',
-            stroke: '#440000',
-            strokeThickness: 6,
-        }).setOrigin(0.5, 0.5).setDepth(51).setAlpha(0);
+        // 画面シェイク
+        this.cameras.main.shake(600, bossType === 'finalBoss' ? 0.02 : 0.01);
+    }
+
+    // ============================================================
+    // showBossPhase2Message(bossType)
+    // ボスが第2フェーズに移行したときのメッセージ
+    // ============================================================
+    showBossPhase2Message(bossType) {
+        const W = this.scale.width;
+        const H = this.scale.height;
+
+        const txt = this.add.text(W / 2, H * 0.40, '⚠ PHASE 2 ⚠', {
+            fontSize: '26px',
+            fontFamily: 'Arial Black, sans-serif',
+            color: '#ff4400',
+            stroke: '#000000',
+            strokeThickness: 4
+        }).setOrigin(0.5).setDepth(50);
 
         this.tweens.add({
             targets: txt,
-            alpha: 1,
+            alpha: 0,
+            y: H * 0.30,
+            delay: 1000,
             duration: 600,
+            onComplete: () => txt.destroy()
+        });
+    }
+
+    // ============================================================
+    // showMidBossDefeatedMessage()
+    // 中ボス撃破後に難易度上昇を通知するメッセージ
+    // ============================================================
+    showMidBossDefeatedMessage() {
+        const W = this.scale.width;
+        const H = this.scale.height;
+
+        const txt = this.add.text(W / 2, H * 0.4,
+            '⚠ 難易度が大幅に上昇！ ⚠', {
+            fontSize: '22px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#ffaa00',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5).setDepth(50);
+
+        this.tweens.add({
+            targets: txt,
+            alpha: 0,
+            y: H * 0.30,
+            delay: 2000,
+            duration: 800,
+            onComplete: () => txt.destroy()
+        });
+    }
+
+    // ============================================================
+    // showPauseMenu()
+    // ポーズメニューを表示する
+    // ============================================================
+    showPauseMenu() {
+        if (this.isGameOver) return;
+        this.isPaused = true;
+        this.physics.pause();
+
+        const W = this.scale.width;
+        const H = this.scale.height;
+
+        // 暗転オーバーレイ
+        const overlay = this.add.graphics().setDepth(80).setScrollFactor(0);
+        overlay.fillStyle(0x000000, 0.65);
+        overlay.fillRect(0, 0, W, H);
+
+        const dlgW = 280;
+        const dlgH = 200;
+        overlay.fillStyle(0x0a1a2a);
+        overlay.fillRoundedRect(W / 2 - dlgW / 2, H / 2 - dlgH / 2, dlgW, dlgH, 10);
+        overlay.lineStyle(2, 0x4488aa);
+        overlay.strokeRoundedRect(W / 2 - dlgW / 2, H / 2 - dlgH / 2, dlgW, dlgH, 10);
+
+        const title = this.add.text(W / 2, H / 2 - 72, 'PAUSED', {
+            fontSize: '26px', fontFamily: 'Arial Black, sans-serif',
+            color: '#ffffff'
+        }).setOrigin(0.5).setDepth(81).setScrollFactor(0);
+
+        // --- 再開ボタン ---
+        const resumeObjs = this._createPauseBtn(W / 2, H / 2 - 15, 180, 38, '▶ ゲーム再開', 0x113322, 0x225533, () => {
+            overlay.destroy();
+            title.destroy();
+            resumeObjs.forEach(o => o.destroy());
+            retireObjs.forEach(o => o.destroy());
+            this.isPaused = false;
+            this.physics.resume();
         });
 
-        this.time.delayedCall(1800, callback);
+        // --- リタイアボタン ---
+        const retireObjs = this._createPauseBtn(W / 2, H / 2 + 38, 180, 38, '✕ リタイア', 0x331111, 0x662222, () => {
+            // コインを保存してメニューへ
+            SaveManager.addCoins(this.saveData, this.coinCount);
+            this.scene.start('GameOverScene', {
+                isVictory: false,
+                retired:   true,
+                coinCount: this.coinCount,
+                score:     this.score,
+                level:     this.levelSystem.level,
+                timeSec:   Math.floor(this.gameTimeSec),
+                stageId:   this.stageId,
+                saveData:  this.saveData
+            });
+        });
+    }
+
+    // ============================================================
+    // _createPauseBtn(x, y, w, h, label, bg, hover, callback)
+    // ポーズメニュー内のボタンを作成するヘルパー
+    // ============================================================
+    _createPauseBtn(x, y, w, h, label, bgColor, hoverColor, callback) {
+        const btnBg = this.add.graphics().setDepth(82).setScrollFactor(0);
+        const draw = (isHover) => {
+            btnBg.clear();
+            btnBg.fillStyle(isHover ? hoverColor : bgColor);
+            btnBg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+            btnBg.lineStyle(1, 0x4488aa);
+            btnBg.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+        };
+        draw(false);
+
+        const txt = this.add.text(x, y, label, {
+            fontSize: '15px', fontFamily: 'Arial, sans-serif', color: '#ffffff'
+        }).setOrigin(0.5).setDepth(83).setScrollFactor(0);
+
+        const hit = this.add.rectangle(x, y, w, h, 0, 0)
+            .setInteractive({ useHandCursor: true }).setDepth(84).setScrollFactor(0);
+        hit.on('pointerover', () => draw(true));
+        hit.on('pointerout',  () => draw(false));
+        hit.on('pointerdown', callback);
+
+        return [btnBg, txt, hit];
+    }
+
+    // ============================================================
+    // onGameOver(isVictory)
+    // ゲーム終了処理（クリアまたはゲームオーバー）
+    // ============================================================
+    onGameOver(isVictory) {
+        if (this.isGameOver) return;
+        this.isGameOver = true;
+
+        this.physics.pause();
+
+        // コインをセーブデータに追加
+        SaveManager.addCoins(this.saveData, this.coinCount);
+
+        // クリアステージを記録
+        if (isVictory) {
+            if (!this.saveData.clearedStages.includes(this.stageId)) {
+                this.saveData.clearedStages.push(this.stageId);
+                SaveManager.save(this.saveData);
+            }
+        }
+
+        const W = this.scale.width;
+        const H = this.scale.height;
+
+        // エフェクト（勝利: 金色 / 敗北: 赤）
+        const color = isVictory ? 0xffee00 : 0xff0000;
+        const flash = this.add.graphics().setDepth(45);
+        flash.fillStyle(color, 0.3);
+        flash.fillRect(0, 0, W, H);
+        this.tweens.add({ targets: flash, alpha: 0, duration: 600 });
+
+        const msg = isVictory ? 'STAGE CLEAR!\n魔王を倒した！' : 'GAME OVER';
+        const msgColor = isVictory ? '#ffee44' : '#ff4444';
+
+        const txt = this.add.text(W / 2, H / 2, msg, {
+            fontSize: '38px',
+            fontFamily: 'Arial Black, sans-serif',
+            color: msgColor,
+            stroke: '#000000',
+            strokeThickness: 6,
+            align: 'center'
+        }).setOrigin(0.5).setDepth(46);
+
+        // GameOverSceneへ遷移
+        this.time.delayedCall(2000, () => {
+            this.scene.start('GameOverScene', {
+                isVictory: isVictory,
+                retired:   false,
+                coinCount: this.coinCount,
+                score:     this.score,
+                level:     this.levelSystem.level,
+                timeSec:   Math.floor(this.gameTimeSec),
+                stageId:   this.stageId,
+                saveData:  this.saveData
+            });
+        });
+    }
+
+    // ============================================================
+    // shutdown()
+    // シーン終了時のクリーンアップ処理
+    // ============================================================
+    shutdown() {
+        // レーザーグラフィックスなどのリソースを解放
+        if (this.weaponManager) this.weaponManager.destroy();
+
+        // 全ての敵を削除
+        for (const enemy of this.allEnemies) {
+            if (enemy && !enemy.isDead) enemy.destroy();
+        }
+
+        // イベントリスナーを削除
+        this.events.off('playerDead');
+        this.events.off('enemyKilled');
+        this.events.off('bossDead');
+        this.events.off('levelUp');
+        this.events.off('upgradeChosen');
     }
 }

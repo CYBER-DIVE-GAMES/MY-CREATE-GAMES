@@ -1,216 +1,199 @@
 // ============================================================
-// SaveManager.js - セーブ・ロード管理
+// js/managers/SaveManager.js
+// セーブ・ロード管理
+// コインや恒久強化のデータをlocalStorageに保存・読み込みします
 // ============================================================
 
-const SAVE_KEY = 'castle_defender_save';
+'use strict';
 
+// localStorage に保存するキー名
+const SAVE_KEY = 'roguelike_shooter_save';
+
+// セーブデータのデフォルト値
 const DEFAULT_SAVE = {
-    playerLevel: 1,
-    playerExp: 0,
-    gold: 200,
+    // 所持コイン（ゲーム終了後も持ち越される）
+    totalCoins: 0,
+
+    // 恒久強化の購入済みレベル
+    // { upgrade_id: レベル数 } の形式
+    permUpgrades: {},
+
+    // クリア済みステージ
     clearedStages: [],
-    stageStars: {},      // { stageId: 1~3 }
-    unlockedStages: [0], // 最初からステージ0が解放
-    upgrades: {
-        soldier:  { hp: 0, attack: 0, speed: 0 },
-        archer:   { hp: 0, attack: 0, speed: 0 },
-        knight:   { hp: 0, attack: 0, speed: 0 },
-        mage:     { hp: 0, attack: 0, speed: 0 },
-        catapult: { hp: 0, attack: 0, speed: 0 },
-        dragon:   { hp: 0, attack: 0, speed: 0 },
-        castle:   { hp: 0, defense: 0, manaRegen: 0 },
-    },
-    skills: {
-        fireBolt:   { unlocked: false, power: 0, cooldown: 0 },
-        shieldWall: { unlocked: false, duration: 0, cooldown: 0 },
-        arrowRain:  { unlocked: false, power: 0, cooldown: 0 },
-    },
-    settings: {
-        bgmVolume: 0.7,
-        sfxVolume: 1.0,
-    },
-    totalPlayTime: 0,
-    lastSaved: null,
+
+    // 統計情報
+    stats: {
+        totalKills: 0,
+        totalDeaths: 0,
+        totalCoinsEarned: 0,
+        totalPlayTime: 0 // 秒
+    }
 };
 
-const EXP_TABLE = [0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2700, 3250, 4000, 5000];
-
 class SaveManager {
+    // ============================================================
+    // save(data)
+    // セーブデータをlocalStorageに保存する
+    // ============================================================
     static save(data) {
         try {
-            data.lastSaved = new Date().toISOString();
             localStorage.setItem(SAVE_KEY, JSON.stringify(data));
             return true;
         } catch (e) {
-            console.warn('セーブ失敗:', e);
+            console.warn('セーブに失敗しました:', e);
             return false;
         }
     }
 
+    // ============================================================
+    // load()
+    // セーブデータをlocalStorageから読み込む
+    // データがなければデフォルト値を返す
+    // ============================================================
     static load() {
         try {
             const raw = localStorage.getItem(SAVE_KEY);
-            if (!raw) return JSON.parse(JSON.stringify(DEFAULT_SAVE));
+            if (!raw) return SaveManager.getDefault();
+
             const loaded = JSON.parse(raw);
-            // デフォルト値でマージ（新項目追加対策）
-            return SaveManager.mergeWithDefaults(loaded, DEFAULT_SAVE);
+            // デフォルト値とマージ（新しいキーが追加されても対応できるように）
+            return SaveManager._merge(loaded, SaveManager.getDefault());
         } catch (e) {
-            console.warn('ロード失敗:', e);
-            return JSON.parse(JSON.stringify(DEFAULT_SAVE));
+            console.warn('ロードに失敗しました:', e);
+            return SaveManager.getDefault();
         }
     }
 
-    static mergeWithDefaults(loaded, defaults) {
+    // ============================================================
+    // getDefault()
+    // デフォルトのセーブデータのコピーを返す
+    // ============================================================
+    static getDefault() {
+        return JSON.parse(JSON.stringify(DEFAULT_SAVE));
+    }
+
+    // ============================================================
+    // reset()
+    // セーブデータを削除してデフォルトに戻す
+    // ============================================================
+    static reset() {
+        localStorage.removeItem(SAVE_KEY);
+        return SaveManager.getDefault();
+    }
+
+    // ============================================================
+    // addCoins(saveData, amount)
+    // コインを追加して保存する
+    // ============================================================
+    static addCoins(saveData, amount) {
+        saveData.totalCoins += amount;
+        saveData.stats.totalCoinsEarned += amount;
+        SaveManager.save(saveData);
+    }
+
+    // ============================================================
+    // spendCoins(saveData, amount)
+    // コインを消費する（足りなければ false を返す）
+    // ============================================================
+    static spendCoins(saveData, amount) {
+        if (saveData.totalCoins < amount) return false;
+        saveData.totalCoins -= amount;
+        SaveManager.save(saveData);
+        return true;
+    }
+
+    // ============================================================
+    // buyPermUpgrade(saveData, upgradeId)
+    // 恒久強化を購入する
+    // 戻り値: { success: boolean, reason: string }
+    // ============================================================
+    static buyPermUpgrade(saveData, upgradeId) {
+        const upgradeData = PERMANENT_UPGRADES.find(u => u.id === upgradeId);
+        if (!upgradeData) return { success: false, reason: '不明なアップグレード' };
+
+        const currentLevel = saveData.permUpgrades[upgradeId] || 0;
+
+        if (currentLevel >= upgradeData.maxLevel) {
+            return { success: false, reason: '最大レベルに達しています' };
+        }
+
+        const cost = upgradeData.cost * (currentLevel + 1); // レベルが高いほど高い
+
+        if (saveData.totalCoins < cost) {
+            return { success: false, reason: `コインが不足しています（必要: ${cost}）` };
+        }
+
+        // 購入処理
+        saveData.totalCoins -= cost;
+        saveData.permUpgrades[upgradeId] = currentLevel + 1;
+        SaveManager.save(saveData);
+
+        return { success: true };
+    }
+
+    // ============================================================
+    // getPermBonus(saveData)
+    // 恒久強化から得られるボーナスを計算して返す
+    // プレイヤー生成時に使用する
+    // ============================================================
+    static getPermBonus(saveData) {
+        const bonus = {
+            maxHp:     0,
+            speed:     0,
+            damage:    0,
+            fireRate:  0,
+            pickup:    0,
+            coinBonus: 0
+        };
+
+        for (const upgrade of PERMANENT_UPGRADES) {
+            const level = saveData.permUpgrades[upgrade.id] || 0;
+            if (level <= 0) continue;
+
+            const totalValue = upgrade.value * level;
+
+            switch (upgrade.effect) {
+                case 'maxHp':     bonus.maxHp     += totalValue; break;
+                case 'speed':     bonus.speed     += totalValue; break;
+                case 'damage':    bonus.damage    += totalValue; break;
+                case 'fireRate':  bonus.fireRate  += totalValue; break;
+                case 'pickup':    bonus.pickup    += totalValue; break;
+                case 'coinBonus': bonus.coinBonus += totalValue; break;
+            }
+        }
+
+        return bonus;
+    }
+
+    // ============================================================
+    // getUpgradeCost(upgradeId, saveData)
+    // 指定アップグレードの現在の購入コストを返す
+    // ============================================================
+    static getUpgradeCost(upgradeId, saveData) {
+        const upgradeData = PERMANENT_UPGRADES.find(u => u.id === upgradeId);
+        if (!upgradeData) return Infinity;
+        const currentLevel = saveData.permUpgrades[upgradeId] || 0;
+        return upgradeData.cost * (currentLevel + 1);
+    }
+
+    // ============================================================
+    // _merge(loaded, defaults)
+    // ロードしたデータとデフォルト値を再帰的にマージする
+    // ============================================================
+    static _merge(loaded, defaults) {
         const result = { ...defaults };
         for (const key in loaded) {
-            if (typeof defaults[key] === 'object' && !Array.isArray(defaults[key]) && defaults[key] !== null) {
-                result[key] = SaveManager.mergeWithDefaults(loaded[key] || {}, defaults[key]);
+            if (
+                typeof defaults[key] === 'object' &&
+                !Array.isArray(defaults[key]) &&
+                defaults[key] !== null &&
+                typeof loaded[key] === 'object'
+            ) {
+                result[key] = SaveManager._merge(loaded[key], defaults[key]);
             } else {
                 result[key] = loaded[key];
             }
         }
         return result;
-    }
-
-    static reset() {
-        localStorage.removeItem(SAVE_KEY);
-        return JSON.parse(JSON.stringify(DEFAULT_SAVE));
-    }
-
-    static hasSave() {
-        return localStorage.getItem(SAVE_KEY) !== null;
-    }
-
-    // EXPを追加してレベルアップを処理
-    static addExp(saveData, exp) {
-        saveData.playerExp += exp;
-        let leveled = false;
-        while (
-            saveData.playerLevel < EXP_TABLE.length - 1 &&
-            saveData.playerExp >= EXP_TABLE[saveData.playerLevel]
-        ) {
-            saveData.playerExp -= EXP_TABLE[saveData.playerLevel];
-            saveData.playerLevel++;
-            leveled = true;
-        }
-        return leveled;
-    }
-
-    // 現レベルの必要EXPを返す
-    static getExpRequired(level) {
-        if (level >= EXP_TABLE.length - 1) return EXP_TABLE[EXP_TABLE.length - 1];
-        return EXP_TABLE[level];
-    }
-
-    // ステージクリア後の処理
-    static onStageClear(saveData, stageId, stars) {
-        if (!saveData.clearedStages.includes(stageId)) {
-            saveData.clearedStages.push(stageId);
-        }
-        // ★はより高い値で上書き
-        if (!saveData.stageStars[stageId] || saveData.stageStars[stageId] < stars) {
-            saveData.stageStars[stageId] = stars;
-        }
-        // 次のステージを解放
-        const nextId = stageId + 1;
-        if (nextId < STAGE_DATA.length && !saveData.unlockedStages.includes(nextId)) {
-            saveData.unlockedStages.push(nextId);
-        }
-    }
-
-    // アップグレードのコスト計算
-    static getUpgradeCost(category, stat, currentLevel) {
-        let base;
-        if (category === 'castle') {
-            base = UPGRADE_DATA.castle[stat].costBase;
-        } else {
-            base = UPGRADE_DATA[category][stat].costBase;
-        }
-        return base * (currentLevel + 1);
-    }
-
-    // アップグレードを実行
-    static applyUpgrade(saveData, category, stat) {
-        const currentLevel = saveData.upgrades[category][stat];
-        let maxLevel = 5;
-        const cost = SaveManager.getUpgradeCost(category, stat, currentLevel);
-
-        if (currentLevel >= maxLevel) return { success: false, reason: '最大レベル' };
-        if (saveData.gold < cost) return { success: false, reason: 'ゴールド不足' };
-
-        saveData.gold -= cost;
-        saveData.upgrades[category][stat]++;
-        return { success: true };
-    }
-
-    // スキル解放
-    static unlockSkill(saveData, skillName) {
-        const skillData = UPGRADE_DATA.skills[skillName];
-        if (!skillData) return { success: false };
-        const cost = skillData.unlock.cost;
-        if (saveData.gold < cost) return { success: false, reason: 'ゴールド不足' };
-        if (saveData.skills[skillName].unlocked) return { success: false, reason: '解放済み' };
-
-        saveData.gold -= cost;
-        saveData.skills[skillName].unlocked = true;
-        return { success: true };
-    }
-
-    // スキルアップグレード
-    static upgradeSkill(saveData, skillName, stat) {
-        const skillUpg = UPGRADE_DATA.skills[skillName][stat];
-        if (!skillUpg) return { success: false };
-        const currentLevel = saveData.skills[skillName][stat];
-        if (currentLevel >= skillUpg.maxLevel) return { success: false, reason: '最大レベル' };
-        const cost = skillUpg.costBase * (currentLevel + 1);
-        if (saveData.gold < cost) return { success: false, reason: 'ゴールド不足' };
-
-        saveData.gold -= cost;
-        saveData.skills[skillName][stat]++;
-        return { success: true };
-    }
-
-    // 城のステータスを計算（アップグレード込み）
-    static getCastleStats(saveData) {
-        const upgCastle = saveData.upgrades.castle;
-        return {
-            maxHp: Math.floor(1000 * (1 + upgCastle.hp * 0.20)),
-            defense: Math.floor(upgCastle.defense * 5),  // 防御値 (ダメージ軽減%)
-            manaRegen: 5 * (1 + upgCastle.manaRegen * 0.20),
-        };
-    }
-
-    // スキルのステータスを計算
-    static getSkillStats(saveData, skillName) {
-        const skill = saveData.skills[skillName];
-        if (!skill.unlocked) return null;
-
-        const base = {
-            fireBolt:   { damage: 80, cooldown: 15000, radius: 80 },
-            shieldWall: { duration: 5000, cooldown: 20000 },
-            arrowRain:  { damage: 40, cooldown: 18000 },
-        }[skillName];
-
-        if (!base) return null;
-
-        if (skillName === 'fireBolt') {
-            return {
-                damage: Math.floor(base.damage * (1 + skill.power * 0.30)),
-                cooldown: Math.floor(base.cooldown * (1 - skill.cooldown * 0.20)),
-                radius: base.radius,
-            };
-        } else if (skillName === 'shieldWall') {
-            return {
-                duration: Math.floor(base.duration * (1 + skill.duration * 0.30)),
-                cooldown: Math.floor(base.cooldown * (1 - skill.cooldown * 0.20)),
-            };
-        } else if (skillName === 'arrowRain') {
-            return {
-                damage: Math.floor(base.damage * (1 + skill.power * 0.30)),
-                cooldown: Math.floor(base.cooldown * (1 - skill.cooldown * 0.20)),
-            };
-        }
-
-        return base;
     }
 }
