@@ -50,8 +50,9 @@ class Enemy {
         // 死亡フラグ
         this.isDead = false;
 
-        // スナイパーの射撃タイマー
-        this.shootTimer = Phaser.Math.Between(2000, 4000);
+        // 射撃タイマー（全タイプ共通）
+        const si = data.shootInterval || [2500, 4500];
+        this.shootTimer = Phaser.Math.Between(si[0], si[1]);
 
         // ============================================================
         // Phaserスプライトを生成
@@ -82,11 +83,12 @@ class Enemy {
         // ============================================================
         this.sprite.body.setVelocity(0, this.speed);
 
-        // スナイパーは定期的にプレイヤーへ向けて弾を発射する
+        // 全射撃タイプ：定期的にプレイヤーへ向けて弾を発射する
         if (this.shootsBack) {
             this.shootTimer -= delta;
             if (this.shootTimer <= 0) {
-                this.shootTimer = Phaser.Math.Between(2500, 4500);
+                const si = (ENEMY_DATA[this.type] || {}).shootInterval || [2500, 4500];
+                this.shootTimer = Phaser.Math.Between(si[0], si[1]);
                 this.fireAtPlayer(player);
             }
         }
@@ -102,25 +104,55 @@ class Enemy {
 
     // ============================================================
     // fireAtPlayer(player)
-    // スナイパーがプレイヤーへ向けて弾を撃つ
+    // 敵がプレイヤーへ向けて弾を撃つ（bulletPatternに応じてパターン変化）
     // ============================================================
     fireAtPlayer(player) {
         if (!this.scene.enemyBullets) return;
 
+        const data = ENEMY_DATA[this.type] || {};
+        const pattern  = data.bulletPattern       || 'aimed';
+        const bSpeed   = data.bulletSpeed          || 250;
+        const bDmg     = Math.round(this.damage * (data.bulletDamageRatio || 0.6));
+
+        if (pattern === 'spread3') {
+            this._fireSpread(player, 3, bSpeed, bDmg, 0xff6600);
+        } else {
+            this._fireAimed(player, bSpeed, bDmg);
+        }
+    }
+
+    // 単発狙い撃ち
+    _fireAimed(player, speed, dmg) {
+        if (!this.scene.enemyBullets) return;
         const bullet = this.scene.enemyBullets.get(this.sprite.x, this.sprite.y, 'bullet_enemy');
         if (!bullet) return;
-
         bullet.setActive(true).setVisible(true);
         bullet.setDepth(6);
         bullet.setTint(0xaa44ff);
-
         const dx = player.getX() - this.sprite.x;
         const dy = player.getY() - this.sprite.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const speed = 250;
-
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
         bullet.body.setVelocity((dx / dist) * speed, (dy / dist) * speed);
-        bullet.damage = Math.round(this.damage * 0.6); // 弾のダメージは接触の60%
+        bullet.damage = dmg;
+    }
+
+    // 扇形複数弾
+    _fireSpread(player, count, speed, dmg, tint) {
+        if (!this.scene.enemyBullets) return;
+        const baseAngle = Phaser.Math.Angle.Between(
+            this.sprite.x, this.sprite.y, player.getX(), player.getY()
+        );
+        const spreadRad = Phaser.Math.DegToRad(20);
+        for (let i = 0; i < count; i++) {
+            const angle = baseAngle + spreadRad * (i - (count - 1) / 2);
+            const bullet = this.scene.enemyBullets.get(this.sprite.x, this.sprite.y, 'bullet_enemy');
+            if (!bullet) continue;
+            bullet.setActive(true).setVisible(true);
+            bullet.setDepth(6);
+            bullet.setTint(tint || 0xff6600);
+            bullet.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+            bullet.damage = dmg;
+        }
     }
 
     // ============================================================

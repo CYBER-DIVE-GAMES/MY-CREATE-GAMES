@@ -555,10 +555,7 @@ class GameScene extends Phaser.Scene {
             if (enemy.isDead || !enemy.sprite.active) continue;
             if (enemy.isBoss) continue; // ボスは除外（別ロジック）
             if (enemy.sprite.y > bottomY) {
-                // プレイヤーへのダメージ（ボスでないので軽め）
-                this.player.takeDamage(enemy.damage * 2);
-                SOUND.playPlayerHit();
-                // 敵を消す（XP・コインドロップなし）
+                // 画面下端に到達した敵はダメージなしで消去（ダメージは弾・接触のみ）
                 enemy.isDead = true;
                 enemy.sprite.setActive(false).setVisible(false);
                 enemy.sprite.destroy();

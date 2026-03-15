@@ -35,7 +35,13 @@ const ENEMY_DATA = {
         size: 26,
         color: 0xff4444,
         scoreValue: 100,
-        isBoss: false
+        isBoss: false,
+        // 狙い撃ち弾を発射
+        shootsBack: true,
+        bulletPattern: 'aimed',
+        bulletSpeed: 200,
+        bulletDamageRatio: 0.4,
+        shootInterval: [2500, 3500]
     },
 
     // 【スピーダー】速いが弱い敵。クラゲ型宇宙人
@@ -51,7 +57,13 @@ const ENEMY_DATA = {
         size: 22,
         color: 0xff8800,
         scoreValue: 150,
-        isBoss: false
+        isBoss: false,
+        // 素早い単発弾を連射
+        shootsBack: true,
+        bulletPattern: 'aimed',
+        bulletSpeed: 300,
+        bulletDamageRatio: 0.3,
+        shootInterval: [1200, 2000]
     },
 
     // 【タンク】遅いが頑丈な敵。タコ型宇宙人
@@ -67,7 +79,13 @@ const ENEMY_DATA = {
         size: 36,
         color: 0xaa0000,
         scoreValue: 350,
-        isBoss: false
+        isBoss: false,
+        // 3方向扇形弾を発射
+        shootsBack: true,
+        bulletPattern: 'spread3',
+        bulletSpeed: 160,
+        bulletDamageRatio: 0.5,
+        shootInterval: [3000, 4500]
     },
 
     // 【スナイパー】プレイヤーに向けて弾を撃つ宇宙人
@@ -84,7 +102,12 @@ const ENEMY_DATA = {
         color: 0xaa44ff,
         scoreValue: 200,
         isBoss: false,
-        shootsBack: true
+        // 高速狙い撃ち
+        shootsBack: true,
+        bulletPattern: 'aimed',
+        bulletSpeed: 330,
+        bulletDamageRatio: 0.6,
+        shootInterval: [1200, 2200]
     },
 
     // ==================== ボス ====================
@@ -184,16 +207,17 @@ const STAGE_CONFIG = {
 // 配列の各要素: { time: 適用開始秒数, hpMult, dmgMult, speedMult, spawnInterval }
 // ============================================================
 const TIME_SCALING = [
-    { time:    0, hpMult: 1.0, dmgMult: 1.0, speedMult: 1.0, spawnInterval: 2500, types: ['grunt'] },
-    { time:   60, hpMult: 1.1, dmgMult: 1.0, speedMult: 1.0, spawnInterval: 2200, types: ['grunt', 'speeder'] },
-    { time:  120, hpMult: 1.2, dmgMult: 1.1, speedMult: 1.05,spawnInterval: 2000, types: ['grunt', 'speeder'] },
-    { time:  180, hpMult: 1.4, dmgMult: 1.2, speedMult: 1.1, spawnInterval: 1800, types: ['grunt', 'speeder', 'tank'] },
-    { time:  240, hpMult: 1.6, dmgMult: 1.3, speedMult: 1.15,spawnInterval: 1600, types: ['grunt', 'speeder', 'tank'] },
-    { time:  300, hpMult: 1.8, dmgMult: 1.4, speedMult: 1.2, spawnInterval: 1500, types: ['grunt', 'speeder', 'tank', 'sniper'] },
-    { time:  480, hpMult: 2.2, dmgMult: 1.6, speedMult: 1.3, spawnInterval: 1300, types: ['grunt', 'speeder', 'tank', 'sniper'] },
-    { time:  600, hpMult: 2.6, dmgMult: 1.8, speedMult: 1.35,spawnInterval: 1200, types: ['grunt', 'speeder', 'tank', 'sniper'] },
-    { time:  900, hpMult: 3.2, dmgMult: 2.0, speedMult: 1.4, spawnInterval: 1100, types: ['grunt', 'speeder', 'tank', 'sniper'] },
-    { time: 1200, hpMult: 4.0, dmgMult: 2.5, speedMult: 1.5, spawnInterval: 900,  types: ['grunt', 'speeder', 'tank', 'sniper'] }, // 中ボス後
-    { time: 1500, hpMult: 5.0, dmgMult: 3.0, speedMult: 1.6, spawnInterval: 750,  types: ['grunt', 'speeder', 'tank', 'sniper'] },
-    { time: 1700, hpMult: 6.5, dmgMult: 3.5, speedMult: 1.7, spawnInterval: 600,  types: ['grunt', 'speeder', 'tank', 'sniper'] }, // 最終ボス直前
+    // 全敵タイプが最初から登場。スポーン間隔を短くして弾幕密度を高める
+    { time:    0, hpMult: 1.0, dmgMult: 1.0, speedMult: 1.0, spawnInterval: 2000, types: ['grunt', 'speeder'] },
+    { time:   60, hpMult: 1.1, dmgMult: 1.0, speedMult: 1.0, spawnInterval: 1700, types: ['grunt', 'speeder', 'tank', 'sniper'] },
+    { time:  120, hpMult: 1.2, dmgMult: 1.1, speedMult: 1.05,spawnInterval: 1500, types: ['grunt', 'speeder', 'tank', 'sniper'] },
+    { time:  180, hpMult: 1.4, dmgMult: 1.2, speedMult: 1.1, spawnInterval: 1350, types: ['grunt', 'speeder', 'tank', 'sniper'] },
+    { time:  240, hpMult: 1.6, dmgMult: 1.3, speedMult: 1.15,spawnInterval: 1200, types: ['grunt', 'speeder', 'tank', 'sniper'] },
+    { time:  300, hpMult: 1.8, dmgMult: 1.4, speedMult: 1.2, spawnInterval: 1100, types: ['grunt', 'speeder', 'tank', 'sniper'] },
+    { time:  480, hpMult: 2.2, dmgMult: 1.6, speedMult: 1.3, spawnInterval: 950,  types: ['grunt', 'speeder', 'tank', 'sniper'] },
+    { time:  600, hpMult: 2.6, dmgMult: 1.8, speedMult: 1.35,spawnInterval: 850,  types: ['grunt', 'speeder', 'tank', 'sniper'] },
+    { time:  900, hpMult: 3.2, dmgMult: 2.0, speedMult: 1.4, spawnInterval: 750,  types: ['grunt', 'speeder', 'tank', 'sniper'] },
+    { time: 1200, hpMult: 4.0, dmgMult: 2.5, speedMult: 1.5, spawnInterval: 600,  types: ['grunt', 'speeder', 'tank', 'sniper'] }, // 中ボス後
+    { time: 1500, hpMult: 5.0, dmgMult: 3.0, speedMult: 1.6, spawnInterval: 480,  types: ['grunt', 'speeder', 'tank', 'sniper'] },
+    { time: 1700, hpMult: 6.5, dmgMult: 3.5, speedMult: 1.7, spawnInterval: 350,  types: ['grunt', 'speeder', 'tank', 'sniper'] }, // 最終ボス直前
 ];

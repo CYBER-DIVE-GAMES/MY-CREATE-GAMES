@@ -22,7 +22,7 @@ class Boss extends Enemy {
 
         // ボスの特殊攻撃タイマー
         this.specialAttackTimer = 0;
-        this.specialAttackInterval = 5000; // 5秒ごとに特殊攻撃
+        this.specialAttackInterval = 3000; // 3秒ごとに特殊攻撃（弾幕強化）
 
         // 第2フェーズ（HP半分以下）フラグ
         this.phase2 = false;
@@ -97,21 +97,32 @@ class Boss extends Enemy {
 
         switch (this.type) {
             case 'miniBoss':
-                // ミニボス: 3方向に弾を発射
-                this.fireSpreadBullets(player, 3);
+                // ミニボス: 5方向扇形弾 + フェーズ2では交互に全方位も発射
+                if (this.phase2 && Math.random() < 0.4) {
+                    this.fireRadialBullets(8);
+                } else {
+                    this.fireSpreadBullets(player, 5);
+                }
                 break;
 
             case 'midBoss':
-                // 中ボス: 8方向全方位弾 + 高速チャージ
-                this.fireRadialBullets(8);
+                // 中ボス: 12方向全方位弾 または 狙い5方向扇形
+                if (Math.random() < 0.5) {
+                    this.fireRadialBullets(12);
+                } else {
+                    this.fireSpreadBullets(player, 5);
+                }
                 break;
 
             case 'finalBoss':
-                // 最終ボス: ランダムに2種類の攻撃を選ぶ
-                if (Math.random() < 0.5) {
-                    this.fireRadialBullets(12); // 12方向弾
+                // 最終ボス: 3択攻撃（16方向弾 / レーザー / 8方向扇形）
+                const r = Math.random();
+                if (r < 0.4) {
+                    this.fireRadialBullets(16);
+                } else if (r < 0.7) {
+                    this.fireLaserBeam(player);
                 } else {
-                    this.fireLaserBeam(player);  // レーザービーム
+                    this.fireSpreadBullets(player, 8);
                 }
                 break;
         }
@@ -128,8 +139,8 @@ class Boss extends Enemy {
             this.sprite.x, this.sprite.y,
             player.getX(), player.getY()
         );
-        const spreadAngle = Phaser.Math.DegToRad(25); // 広がり角度（ラジアン）
-        const speed = 200;
+        const spreadAngle = Phaser.Math.DegToRad(20); // 広がり角度（ラジアン）
+        const speed = 240;
 
         for (let i = 0; i < count; i++) {
             // 弾の角度を均等に振り分ける
@@ -155,7 +166,7 @@ class Boss extends Enemy {
     fireRadialBullets(count) {
         if (!this.scene.enemyBullets) return;
 
-        const speed = 180;
+        const speed = 220;
         const angleStep = (Math.PI * 2) / count; // 等間隔の角度
 
         for (let i = 0; i < count; i++) {
@@ -223,9 +234,9 @@ class Boss extends Enemy {
     enterPhase2() {
         this.phase2 = true;
 
-        // スピードと攻撃速度を上げる
-        this.speed *= 1.4;
-        this.specialAttackInterval = Math.round(this.specialAttackInterval * 0.65);
+        // スピードと攻撃速度を大幅に上げる（フェーズ2はさらに激化）
+        this.speed *= 1.5;
+        this.specialAttackInterval = Math.round(this.specialAttackInterval * 0.5); // 攻撃間隔を半分に
 
         // フェーズ2の視覚的変化（より暗い色に変わる）
         this.sprite.setTint(0xff4444);
