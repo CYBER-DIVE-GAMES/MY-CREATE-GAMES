@@ -76,77 +76,85 @@ class MenuScene extends Phaser.Scene {
 
     // ============================================================
     // showTitleView(W, H)
-    // タイトル + ステージ選択画面を表示する
+    // タイトル + ステージ選択画面を表示する（ポートレート対応）
     // ============================================================
     showTitleView(W, H) {
         this.clearView();
 
-        // ---- タイトル文字 ----
-        const title = this.add.text(W / 2, H * 0.12, 'CYBER DIVE', {
-            fontSize: '48px',
+        // ---- タイトル文字（ポートレート: フォントを縮小）----
+        const title = this.add.text(W / 2, H * 0.07, 'CYBER DIVE', {
+            fontSize: '36px',
             fontFamily: 'Arial Black, sans-serif',
             color: '#00ffff',
             stroke: '#004466',
-            strokeThickness: 5
+            strokeThickness: 4
         }).setOrigin(0.5);
         this.viewObjects.push(title);
 
-        const subtitle = this.add.text(W / 2, H * 0.21, 'ローグライク・シューター', {
-            fontSize: '18px',
+        const subtitle = this.add.text(W / 2, H * 0.14, 'ローグライク・シューター', {
+            fontSize: '14px',
             fontFamily: 'Arial, sans-serif',
             color: '#aaffff'
         }).setOrigin(0.5);
         this.viewObjects.push(subtitle);
 
         // ---- コイン表示 ----
-        const coinDisplay = this.add.text(W / 2, H * 0.28, `所持コイン: ${this.saveData.totalCoins} 枚`, {
-            fontSize: '16px',
+        const coinDisplay = this.add.text(W / 2, H * 0.20, `💰 所持コイン: ${this.saveData.totalCoins} 枚`, {
+            fontSize: '14px',
             fontFamily: 'Arial, sans-serif',
             color: '#ffcc00'
         }).setOrigin(0.5);
         this.viewObjects.push(coinDisplay);
 
-        // ---- ステージ選択カード ----
+        // ---- ステージ選択カード（横3枚：W-20の幅に収める）----
         const stages = [
             { id: 1, label: 'STAGE 1', diff: '低難易度', color: 0x004400, borderColor: 0x00aa44 },
             { id: 2, label: 'STAGE 2', diff: '中難易度', color: 0x443300, borderColor: 0xaaaa00 },
             { id: 3, label: 'STAGE 3', diff: '高難易度', color: 0x440000, borderColor: 0xaa2222 },
         ];
 
-        const cardW = 180;
-        const cardH = 100;
-        const cardSpacing = 20;
-        const totalW = stages.length * cardW + (stages.length - 1) * cardSpacing;
-        const startX = W / 2 - totalW / 2;
+        const cardSpacing = 8;
+        const cardW = Math.floor((W - 20 - cardSpacing * 2) / 3); // 3枚均等分割
+        const cardH = 90;
+        const startX = 10;
 
         stages.forEach((stage, i) => {
             const cx = startX + i * (cardW + cardSpacing);
-            const cy = H * 0.38;
+            const cy = H * 0.28;
             this.createStageCard(cx, cy, cardW, cardH, stage);
         });
 
         // ---- 操作説明 ----
         const helpText = [
             '操作方法:',
-            'WASD / 矢印キー: 移動',
-            '自動攻撃: レベルアップで強化',
-            'レベルアップ時に3択から強化を選択',
+            'A / D キー: 左右移動',
+            '自動攻撃（移動のみ操作）',
+            'レベルアップ時に3択で強化',
+            'XP・コインは真下に落下',
         ].join('\n');
 
-        const helpObj = this.add.text(W / 2, H * 0.70, helpText, {
-            fontSize: '14px',
+        const helpObj = this.add.text(W / 2, H * 0.53, helpText, {
+            fontSize: '13px',
             fontFamily: 'Arial, sans-serif',
             color: '#8899aa',
             align: 'center',
-            lineSpacing: 6
+            lineSpacing: 5
         }).setOrigin(0.5);
         this.viewObjects.push(helpObj);
 
         // ---- 恒久強化ショップボタン ----
-        const shopBtn = this.createButton(W / 2, H * 0.87, 220, 44, '🏪 恒久強化ショップ', 0x112244, 0x224466, () => {
+        const shopBtn = this.createButton(W / 2, H * 0.80, W - 40, 44, '🏪 恒久強化ショップ', 0x112244, 0x224466, () => {
             this.showShopView(W, H);
         });
         this.viewObjects.push(...shopBtn);
+
+        // ---- バージョン表示 ----
+        const verObj = this.add.text(W / 2, H * 0.93, 'v2.0  CYBER DIVE', {
+            fontSize: '11px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#334455'
+        }).setOrigin(0.5);
+        this.viewObjects.push(verObj);
     }
 
     // ============================================================
@@ -174,36 +182,33 @@ class MenuScene extends Phaser.Scene {
         drawNormal();
         this.viewObjects.push(bg);
 
-        const label = this.add.text(x + w / 2, y + h * 0.28, stage.label, {
-            fontSize: '20px',
+        const label = this.add.text(x + w / 2, y + h * 0.22, stage.label, {
+            fontSize: '14px',
             fontFamily: 'Arial Black, sans-serif',
-            color: '#ffffff'
+            color: '#ffffff',
+            wordWrap: { width: w - 6 },
+            align: 'center'
         }).setOrigin(0.5);
         this.viewObjects.push(label);
 
-        const diff = this.add.text(x + w / 2, y + h * 0.56, stage.diff, {
-            fontSize: '14px',
+        const diff = this.add.text(x + w / 2, y + h * 0.52, stage.diff, {
+            fontSize: '12px',
             fontFamily: 'Arial, sans-serif',
-            color: '#cccccc'
+            color: '#cccccc',
+            wordWrap: { width: w - 6 },
+            align: 'center'
         }).setOrigin(0.5);
         this.viewObjects.push(diff);
 
         // クリア表示
         if (isCleared) {
-            const clearMark = this.add.text(x + w - 10, y + 8, 'CLEAR✓', {
+            const clearMark = this.add.text(x + w / 2, y + h * 0.78, 'CLEAR ✓', {
                 fontSize: '10px',
                 fontFamily: 'Arial, sans-serif',
                 color: '#00ff88'
-            }).setOrigin(1, 0);
+            }).setOrigin(0.5);
             this.viewObjects.push(clearMark);
         }
-
-        const duration = this.add.text(x + w / 2, y + h * 0.80, '30分間', {
-            fontSize: '12px',
-            fontFamily: 'Arial, sans-serif',
-            color: '#888888'
-        }).setOrigin(0.5);
-        this.viewObjects.push(duration);
 
         // クリックエリア
         const hit = this.add.rectangle(x + w / 2, y + h / 2, w, h, 0x000000, 0)

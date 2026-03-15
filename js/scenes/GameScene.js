@@ -568,35 +568,51 @@ class GameScene extends Phaser.Scene {
 
     // ============================================================
     // updateItemAttraction(delta)
-    // XPオーブ・コインがプレイヤーの吸収範囲内に入ったら引き寄せる
+    // アイテムの処理:
+    //   通常 → 真下に一定速度で落下
+    //   吸収範囲内 → プレイヤーに向かって引き寄せ
+    //   画面下端を超えた → 非アクティブ化（回収できなかった）
     // ============================================================
     updateItemAttraction(delta) {
         const px = this.player.getX();
         const py = this.player.getY();
         const pickupR = this.player.pickupRadius;
         const pickupRSq = pickupR * pickupR;
-        const attractSpeed = 300;
+        const attractSpeed = 340;
+        const fallSpeed = 70;
+        const H = this.scale.height;
 
-        // XPオーブの引き寄せ
+        // XPオーブ
         this.xpOrbs.children.iterate(orb => {
             if (!orb || !orb.active) return;
+            // 画面外に落ちたら消す
+            if (orb.y > H + 20) {
+                orb.setActive(false).setVisible(false);
+                return;
+            }
             const dx = px - orb.x;
             const dy = py - orb.y;
             const distSq = dx * dx + dy * dy;
             if (distSq < pickupRSq) {
+                // 吸収範囲内: プレイヤーへ引き寄せ
                 const dist = Math.sqrt(distSq);
                 orb.body.setVelocity(
                     (dx / dist) * attractSpeed,
                     (dy / dist) * attractSpeed
                 );
-            } else if (orb.body.speed > 0) {
-                orb.body.setVelocity(0, 0);
+            } else {
+                // 通常: 真下に落下
+                orb.body.setVelocity(0, fallSpeed);
             }
         });
 
-        // コインの引き寄せ
+        // コイン
         this.coinGroup.children.iterate(coin => {
             if (!coin || !coin.active) return;
+            if (coin.y > H + 20) {
+                coin.setActive(false).setVisible(false);
+                return;
+            }
             const dx = px - coin.x;
             const dy = py - coin.y;
             const distSq = dx * dx + dy * dy;
@@ -606,8 +622,8 @@ class GameScene extends Phaser.Scene {
                     (dx / dist) * attractSpeed,
                     (dy / dist) * attractSpeed
                 );
-            } else if (coin.body.speed > 0) {
-                coin.body.setVelocity(0, 0);
+            } else {
+                coin.body.setVelocity(0, 60);
             }
         });
     }
@@ -783,13 +799,9 @@ class GameScene extends Phaser.Scene {
         orb.setDepth(3);
         orb.xpValue = xpValue;
 
-        // 少しランダムに飛び散る
-        orb.body.setVelocity(
-            Phaser.Math.Between(-60, 60),
-            Phaser.Math.Between(-80, -20)
-        );
-        // 重力なし、空気抵抗を設定して自然に止まる
-        orb.body.setDrag(200, 200);
+        // 真下にゆっくり落下する（プレイヤーが横移動して取りに行く）
+        orb.body.setVelocity(0, 70);
+        orb.body.setDrag(0, 0); // ドラッグなし：一定速度で落下
     }
 
     // ============================================================
@@ -804,11 +816,9 @@ class GameScene extends Phaser.Scene {
         coin.setDepth(3);
         coin.coinValue = amount;
 
-        coin.body.setVelocity(
-            Phaser.Math.Between(-50, 50),
-            Phaser.Math.Between(-70, -15)
-        );
-        coin.body.setDrag(180, 180);
+        // 真下にゆっくり落下する
+        coin.body.setVelocity(0, 60);
+        coin.body.setDrag(0, 0);
     }
 
     // ============================================================
