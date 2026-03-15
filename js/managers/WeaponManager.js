@@ -127,6 +127,7 @@ class WeaponManager {
 
             if (time - weapon.lastFired >= adjustedRate) {
                 weapon.lastFired = time;
+                SOUND.playWeaponShot(weapon.id);
                 BulletFactory.createBullets(
                     this.scene,
                     weapon.id,
@@ -155,6 +156,7 @@ class WeaponManager {
             if (weapon.laserTimer >= adjustedCooldown) {
                 weapon.laserTimer = 0;
                 weapon.laserState = 'firing';
+                SOUND.playLaserStart();
             }
 
         } else if (weapon.laserState === 'firing') {

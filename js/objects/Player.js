@@ -57,28 +57,20 @@ class Player {
     // ============================================================
     // update(cursors, delta)
     // 毎フレーム呼ばれる更新処理
-    // cursors : キーボード入力オブジェクト（WASDキー）
+    // cursors : キーボード入力オブジェクト（A/Dキー）
     // delta   : 前フレームからの経過時間（ms）
     // ============================================================
     update(cursors, delta) {
         if (this.isDead) return;
 
-        // --- WASD / 矢印キーで移動方向を決定 ---
+        // --- A/D（左右のみ）で移動方向を決定 ---
+        // 縦移動なし：プレイヤーは画面下部の固定Y位置で左右にのみ動く
         let vx = 0;
-        let vy = 0;
 
         if (cursors.A.isDown || cursors.LEFT.isDown)  vx = -this.speed; // 左移動
         if (cursors.D.isDown || cursors.RIGHT.isDown) vx =  this.speed; // 右移動
-        if (cursors.W.isDown || cursors.UP.isDown)    vy = -this.speed; // 上移動
-        if (cursors.S.isDown || cursors.DOWN.isDown)  vy =  this.speed; // 下移動
 
-        // 斜め移動で速度が √2 倍にならないよう正規化する
-        if (vx !== 0 && vy !== 0) {
-            vx /= Math.SQRT2;
-            vy /= Math.SQRT2;
-        }
-
-        this.sprite.body.setVelocity(vx, vy);
+        this.sprite.body.setVelocity(vx, 0); // Y速度は常に0
 
         // --- 無敵時間の更新と点滅エフェクト ---
         if (this.invincibleTime > 0) {

@@ -29,16 +29,16 @@ const WEAPON_DATA = {
         type: 'bullet',
         color: 0x00ffff, // シアン色
         stats: [
-            // Lv1: 基本性能
-            { damage: 15, fireRate: 1000, speed: 500, count: 1 },
+            // Lv1: 基本性能（連射速度を上げて爽快感アップ）
+            { damage: 15, fireRate: 400, speed: 550, count: 1 },
             // Lv2: ダメージ・速度アップ
-            { damage: 22, fireRate: 900,  speed: 530, count: 1 },
+            { damage: 22, fireRate: 360, speed: 580, count: 1 },
             // Lv3: 弾数が2発に増加
-            { damage: 30, fireRate: 800,  speed: 560, count: 2 },
+            { damage: 30, fireRate: 320, speed: 610, count: 2 },
             // Lv4: さらに強化
-            { damage: 38, fireRate: 700,  speed: 590, count: 2 },
+            { damage: 38, fireRate: 280, speed: 640, count: 2 },
             // Lv5: MAX 弾数3発
-            { damage: 50, fireRate: 600,  speed: 620, count: 3 },
+            { damage: 50, fireRate: 240, speed: 680, count: 3 },
         ]
     },
 
@@ -52,11 +52,11 @@ const WEAPON_DATA = {
         color: 0xffff00, // 黄色
         stats: [
             // spreadAngle: 弾の広がり角度（度）。この角度を弾数で等分して発射
-            { damage: 10, fireRate: 1200, speed: 400, count: 3, spreadAngle: 20 },
-            { damage: 14, fireRate: 1100, speed: 420, count: 3, spreadAngle: 25 },
-            { damage: 18, fireRate: 1000, speed: 440, count: 5, spreadAngle: 30 },
-            { damage: 24, fireRate: 900,  speed: 460, count: 5, spreadAngle: 35 },
-            { damage: 30, fireRate: 800,  speed: 480, count: 7, spreadAngle: 40 },
+            { damage: 10, fireRate: 500, speed: 440, count: 3, spreadAngle: 20 },
+            { damage: 14, fireRate: 460, speed: 460, count: 3, spreadAngle: 25 },
+            { damage: 18, fireRate: 420, speed: 480, count: 5, spreadAngle: 30 },
+            { damage: 24, fireRate: 380, speed: 500, count: 5, spreadAngle: 35 },
+            { damage: 30, fireRate: 340, speed: 520, count: 7, spreadAngle: 40 },
         ]
     },
 
@@ -70,11 +70,11 @@ const WEAPON_DATA = {
         color: 0xff8800, // オレンジ色
         stats: [
             // turnRate: 旋回速度（ラジアン/秒）。大きいほど急旋回できる
-            { damage: 20, fireRate: 1500, speed: 280, count: 1, turnRate: 3   },
-            { damage: 28, fireRate: 1400, speed: 300, count: 1, turnRate: 3.5 },
-            { damage: 36, fireRate: 1300, speed: 320, count: 2, turnRate: 4   },
-            { damage: 45, fireRate: 1200, speed: 340, count: 2, turnRate: 4.5 },
-            { damage: 56, fireRate: 1100, speed: 360, count: 3, turnRate: 5   },
+            { damage: 20, fireRate: 700, speed: 320, count: 1, turnRate: 3   },
+            { damage: 28, fireRate: 640, speed: 340, count: 1, turnRate: 3.5 },
+            { damage: 36, fireRate: 580, speed: 360, count: 2, turnRate: 4   },
+            { damage: 45, fireRate: 520, speed: 380, count: 2, turnRate: 4.5 },
+            { damage: 56, fireRate: 460, speed: 400, count: 3, turnRate: 5   },
         ]
     },
 

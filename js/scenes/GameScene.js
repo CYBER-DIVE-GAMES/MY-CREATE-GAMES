@@ -141,6 +141,13 @@ class GameScene extends Phaser.Scene {
         // ステージ名を一時的に表示
         // ============================================================
         this.showStageName(this.stageConfig.name, W, H);
+
+        // ============================================================
+        // BGM開始
+        // 最初のキー入力 or クリックで AudioContext を解除してBGM再生
+        // ============================================================
+        this.input.once('pointerdown', () => { SOUND.resume(); SOUND.startBGM(); });
+        this.input.keyboard.once('keydown', () => { SOUND.resume(); SOUND.startBGM(); });
     }
 
     // ============================================================
@@ -205,6 +212,7 @@ class GameScene extends Phaser.Scene {
                 if (!orbSprite.active) return;
                 this.levelSystem.addXp(orbSprite.xpValue || 10);
                 orbSprite.setActive(false).setVisible(false);
+                SOUND.playXpPickup();
             },
             null, this
         );
@@ -219,6 +227,7 @@ class GameScene extends Phaser.Scene {
                 this.coinCount += earned;
                 this.updateCoinHUD();
                 coinSprite.setActive(false).setVisible(false);
+                SOUND.playCoin();
             },
             null, this
         );
@@ -242,6 +251,7 @@ class GameScene extends Phaser.Scene {
 
         // ボス死亡イベント
         this.events.on('bossDead', (data) => {
+            SOUND.playBossDie();
             this.enemySpawner.onBossDefeated(data.type);
             if (data.isMidBoss) this.midBossDefeated = true;
             if (data.isFinalBoss) {
@@ -252,6 +262,7 @@ class GameScene extends Phaser.Scene {
 
         // レベルアップイベント
         this.events.on('levelUp', (data) => {
+            SOUND.playLevelUp();
             this.onLevelUp(data);
         });
 
@@ -266,34 +277,38 @@ class GameScene extends Phaser.Scene {
     // ============================================================
     // createHUD(W, H)
     // HPバー・XPバー・タイマー・コイン・レベルなどのHUDを作成する
+    // 縦長（ポートレート）レイアウト向けに調整済み
     // ============================================================
     createHUD(W, H) {
-        // HUD は画面下部に配置（scrollFactor = 0 でカメラに追従しない固定UI）
+        // HUD の底部パネル背景
+        const hudBg = this.add.graphics().setScrollFactor(0).setDepth(89);
+        hudBg.fillStyle(0x000000, 0.55);
+        hudBg.fillRect(0, H - 60, W, 60);
 
-        // --- HPバー ---
-        const hpBarX = 10;
-        const hpBarY = H - 36;
-        const hpBarW = 200;
+        // --- HPバー（画面下部・横幅広め）---
+        const hpBarX = 8;
+        const hpBarY = H - 50;
+        const hpBarW = W - 16;
         const hpBarH = 14;
 
         this.hpBarBg = this.add.graphics().setScrollFactor(0).setDepth(90);
-        this.hpBarBg.fillStyle(0x220000);
-        this.hpBarBg.fillRoundedRect(hpBarX, hpBarY, hpBarW, hpBarH, 3);
+        this.hpBarBg.fillStyle(0x330000);
+        this.hpBarBg.fillRoundedRect(hpBarX, hpBarY, hpBarW, hpBarH, 4);
 
         this.hpBarFill = this.add.graphics().setScrollFactor(0).setDepth(91);
 
-        this.hpLabel = this.add.text(hpBarX, hpBarY - 14, 'HP', {
-            fontSize: '12px', fontFamily: 'Arial, sans-serif', color: '#ff6666'
+        this.hpLabel = this.add.text(hpBarX + 4, hpBarY + 1, 'HP', {
+            fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#ff8888'
         }).setScrollFactor(0).setDepth(92);
 
-        this.hpText = this.add.text(hpBarX + hpBarW + 5, hpBarY, '100/100', {
+        this.hpText = this.add.text(W - 8, hpBarY + 1, '100/100', {
             fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#ffaaaa'
-        }).setScrollFactor(0).setDepth(92);
+        }).setOrigin(1, 0).setScrollFactor(0).setDepth(92);
 
-        // --- XPバー ---
-        const xpBarX = 10;
-        const xpBarY = H - 18;
-        const xpBarW = 200;
+        // --- XPバー（HPバーの下）---
+        const xpBarX = 8;
+        const xpBarY = H - 32;
+        const xpBarW = W - 16;
         const xpBarH = 10;
 
         this.xpBarBg = this.add.graphics().setScrollFactor(0).setDepth(90);
@@ -302,37 +317,38 @@ class GameScene extends Phaser.Scene {
 
         this.xpBarFill = this.add.graphics().setScrollFactor(0).setDepth(91);
 
-        this.xpLabel = this.add.text(xpBarX, xpBarY - 12, 'XP', {
-            fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#44ff88'
+        this.xpLabel = this.add.text(xpBarX + 4, xpBarY + 1, 'XP', {
+            fontSize: '9px', fontFamily: 'Arial, sans-serif', color: '#44ff88'
         }).setScrollFactor(0).setDepth(92);
 
-        // --- レベル・タイマー・スコア表示 ---
-        this.levelText = this.add.text(W / 2, H - 30, 'Lv.1', {
-            fontSize: '16px', fontFamily: 'Arial Black, sans-serif',
-            color: '#ffffff', stroke: '#000000', strokeThickness: 3
+        // --- 最下段テキスト（レベル・スコア）---
+        this.levelText = this.add.text(W / 2, H - 18, 'Lv.1', {
+            fontSize: '13px', fontFamily: 'Arial Black, sans-serif',
+            color: '#ffffff', stroke: '#000000', strokeThickness: 2
         }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(92);
 
-        this.timerText = this.add.text(W / 2, 12, '00:00', {
+        this.scoreText = this.add.text(W - 8, H - 18, 'Score: 0', {
+            fontSize: '11px', fontFamily: 'Arial, sans-serif',
+            color: '#aaaacc', stroke: '#000000', strokeThickness: 1
+        }).setOrigin(1, 0).setScrollFactor(0).setDepth(92);
+
+        // --- タイマー（画面上部中央）---
+        this.timerText = this.add.text(W / 2, 8, '00:00', {
             fontSize: '22px', fontFamily: 'Arial, sans-serif',
             color: '#ffffff', stroke: '#000000', strokeThickness: 3
         }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(92);
 
-        this.coinText = this.add.text(W - 10, H - 36, '💰 0', {
-            fontSize: '16px', fontFamily: 'Arial, sans-serif',
+        // --- コイン（タイマー右）---
+        this.coinText = this.add.text(W - 8, 10, '💰 0', {
+            fontSize: '14px', fontFamily: 'Arial, sans-serif',
             color: '#ffcc00', stroke: '#443300', strokeThickness: 2
         }).setOrigin(1, 0).setScrollFactor(0).setDepth(92);
 
-        this.scoreText = this.add.text(W - 10, H - 18, 'Score: 0', {
-            fontSize: '12px', fontFamily: 'Arial, sans-serif',
-            color: '#aaaacc', stroke: '#000000', strokeThickness: 2
-        }).setOrigin(1, 0).setScrollFactor(0).setDepth(92);
-
-        // --- 武器表示エリア（画面右上）---
-        this.weaponListText = this.add.text(W - 10, 40, '', {
-            fontSize: '12px', fontFamily: 'Arial, sans-serif',
-            color: '#aaccff', align: 'right',
-            lineSpacing: 3
-        }).setOrigin(1, 0).setScrollFactor(0).setDepth(92);
+        // --- 武器一覧（画面左上）---
+        this.weaponListText = this.add.text(8, 36, '', {
+            fontSize: '11px', fontFamily: 'Arial, sans-serif',
+            color: '#aaccff', lineSpacing: 2
+        }).setScrollFactor(0).setDepth(92);
 
         // 初回更新
         this.updateHPBar();
@@ -431,6 +447,11 @@ class GameScene extends Phaser.Scene {
         this.checkEnemyPlayerCollisions();
 
         // ============================================================
+        // 敵が画面下端に到達したときのダメージ処理
+        // ============================================================
+        this.checkEnemiesReachedBottom();
+
+        // ============================================================
         // XPオーブ・コインの自動吸収（磁力エフェクト）
         // ============================================================
         this.updateItemAttraction(delta);
@@ -477,8 +498,10 @@ class GameScene extends Phaser.Scene {
                     // 敵にダメージ
                     const died = enemy.takeDamage(dmg);
 
-                    // ヒットエフェクト
+                    // ヒットエフェクト + SE
                     this.createHitEffect(bulletSprite.x, bulletSprite.y, bulletSprite.tintTopLeft || 0xffffff);
+                    const bulletRef2 = bulletSprite.bulletRef;
+                    SOUND.playHitEffect(bulletRef2 ? bulletRef2.weaponType : 'default');
 
                     // 弾の処理（貫通するかどうか）
                     let removeBullet = true;
@@ -515,6 +538,30 @@ class GameScene extends Phaser.Scene {
 
             if (dist < hitDist) {
                 this.player.takeDamage(enemy.damage);
+                SOUND.playPlayerHit();
+            }
+        }
+    }
+
+    // ============================================================
+    // checkEnemiesReachedBottom()
+    // 敵が画面下端に到達したらプレイヤーにダメージを与えて消す
+    // ============================================================
+    checkEnemiesReachedBottom() {
+        const H = this.scale.height;
+        const bottomY = H + 20; // 画面下から少し外
+
+        for (const enemy of this.allEnemies) {
+            if (enemy.isDead || !enemy.sprite.active) continue;
+            if (enemy.isBoss) continue; // ボスは除外（別ロジック）
+            if (enemy.sprite.y > bottomY) {
+                // プレイヤーへのダメージ（ボスでないので軽め）
+                this.player.takeDamage(enemy.damage * 2);
+                SOUND.playPlayerHit();
+                // 敵を消す（XP・コインドロップなし）
+                enemy.isDead = true;
+                enemy.sprite.setActive(false).setVisible(false);
+                enemy.sprite.destroy();
             }
         }
     }
@@ -605,21 +652,21 @@ class GameScene extends Phaser.Scene {
     // HPバーの色とサイズを更新する
     // ============================================================
     updateHPBar() {
+        const W = this.scale.width;
         const H = this.scale.height;
         const hpRatio = this.player.getHpRatio();
-        const barW = 200;
+        const barW = W - 16;
         const barH = 14;
-        const barX = 10;
-        const barY = H - 36;
+        const barX = 8;
+        const barY = H - 50;
 
-        // HPに応じて色が変わる（高: 緑 → 中: 黄 → 低: 赤）
         let color = 0x00ff44;
         if (hpRatio < 0.5) color = 0xffff00;
         if (hpRatio < 0.25) color = 0xff2200;
 
         this.hpBarFill.clear();
         this.hpBarFill.fillStyle(color);
-        this.hpBarFill.fillRoundedRect(barX, barY, Math.max(2, Math.round(barW * hpRatio)), barH, 3);
+        this.hpBarFill.fillRoundedRect(barX, barY, Math.max(2, Math.round(barW * hpRatio)), barH, 4);
 
         this.hpText.setText(`${this.player.hp}/${this.player.maxHp}`);
     }
@@ -629,12 +676,13 @@ class GameScene extends Phaser.Scene {
     // XPバーのサイズを更新する
     // ============================================================
     updateXPBar() {
+        const W = this.scale.width;
         const H = this.scale.height;
         const xpRatio = this.levelSystem.getXpRatio();
-        const barW = 200;
+        const barW = W - 16;
         const barH = 10;
-        const barX = 10;
-        const barY = H - 18;
+        const barX = 8;
+        const barY = H - 32;
 
         this.xpBarFill.clear();
         this.xpBarFill.fillStyle(0x00ff88);
@@ -656,8 +704,8 @@ class GameScene extends Phaser.Scene {
     updateWeaponList() {
         const weapons = this.weaponManager.getWeaponList();
         const lines = weapons.map(w => {
-            const star = w.isUltimate ? '★' : '  ';
-            return `${star} ${w.name} Lv${w.level}`;
+            const star = w.isUltimate ? '★' : '・';
+            return `${star}${w.name} Lv${w.level}`;
         });
         this.weaponListText.setText(lines.join('\n') || '武器なし');
     }
@@ -789,6 +837,8 @@ class GameScene extends Phaser.Scene {
     // ボス出現時の警告メッセージを表示する
     // ============================================================
     showBossAlert(bossType) {
+        SOUND.playBossAppear();
+        if (bossType !== 'miniBoss') SOUND.startBossBGM();
         const W = this.scale.width;
         const H = this.scale.height;
 
@@ -980,6 +1030,9 @@ class GameScene extends Phaser.Scene {
         this.isGameOver = true;
 
         this.physics.pause();
+        SOUND.stopBGM();
+        if (isVictory) SOUND.playStageClear();
+        else           SOUND.playGameOver();
 
         // コインをセーブデータに追加
         SaveManager.addCoins(this.saveData, this.coinCount);
@@ -1034,6 +1087,7 @@ class GameScene extends Phaser.Scene {
     // シーン終了時のクリーンアップ処理
     // ============================================================
     shutdown() {
+        SOUND.stopBGM();
         // レーザーグラフィックスなどのリソースを解放
         if (this.weaponManager) this.weaponManager.destroy();
 

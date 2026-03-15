@@ -28,6 +28,11 @@ class Boss extends Enemy {
         this.phase2 = false;
         this.phase2Announced = false;
 
+        // ボスは画面上部を左右にパトロールする
+        // patrolDir: 1=右 / -1=左
+        this.patrolDir = 1;
+        this.patrolTargetX = this.scene.scale.width * 0.8;
+
         // HPバー（ボスのHPは画面上部に専用バーで表示）
         this.createBossHpBar();
 
@@ -37,13 +42,35 @@ class Boss extends Enemy {
 
     // ============================================================
     // update(player, delta)
-    // ボス専用の更新処理（親クラスの処理に加えて特殊攻撃を追加）
+    // ボス専用の更新処理（親クラスのEnemy.update()をオーバーライドし
+    // 落下せず画面上部を左右にパトロールさせる）
     // ============================================================
     update(player, delta) {
         if (this.isDead) return;
 
-        // 親クラスの移動・ダメージ処理を実行
-        super.update(player, delta);
+        // ---- ボスの移動：上部を左右パトロール ----
+        // 親クラスの update() は呼ばず、独自の移動ロジックを使う
+        const W = this.scene.scale.width;
+        const marginX = 60;
+
+        // 目標X座標に向かって横移動
+        const dx = this.patrolTargetX - this.sprite.x;
+        if (Math.abs(dx) < 5) {
+            // 目標到達したら折り返す
+            this.patrolDir = -this.patrolDir;
+            this.patrolTargetX = this.patrolDir > 0
+                ? W - marginX
+                : marginX;
+        }
+        this.sprite.body.setVelocity(this.patrolDir * this.speed, 0);
+
+        // ヒットフラッシュ更新（親クラスから移植）
+        if (this.hitFlashTime > 0) {
+            this.hitFlashTime -= delta;
+            this.sprite.setTint(this.phase2 ? 0xff8888 : 0xffffff);
+        } else if (!this.phase2) {
+            this.sprite.clearTint();
+        }
 
         // 特殊攻撃タイマーを更新
         this.specialAttackTimer += delta;

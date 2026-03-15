@@ -56,8 +56,10 @@ class Enemy {
         // ============================================================
         // Phaserスプライトを生成
         // テクスチャはBootSceneで生成されたものを使用
+        // textureKey が EnemyData に定義されていればそれを使い、
+        // なければ 'enemy_' + enemyType のフォールバックを使う
         // ============================================================
-        const texKey = 'enemy_' + enemyType;
+        const texKey = data.textureKey || ('enemy_' + enemyType);
         this.sprite = scene.physics.add.sprite(x, y, texKey);
         this.sprite.setDepth(5);
 
@@ -68,33 +70,19 @@ class Enemy {
     // ============================================================
     // update(player, delta)
     // 毎フレーム呼ばれる更新処理
-    // player : プレイヤーオブジェクト（移動目標）
+    // player : プレイヤーオブジェクト（スナイパーの狙い方向に使用）
     // delta  : 前フレームからの経過時間（ms）
     // ============================================================
     update(player, delta) {
         if (this.isDead || !this.sprite.active) return;
 
-        const px = player.getX();
-        const py = player.getY();
-        const ex = this.sprite.x;
-        const ey = this.sprite.y;
+        // ============================================================
+        // 敵は真下に落下するだけ（ホーミングなし）
+        // ボスも倒されるまで画面上部にとどまり、横移動はBossクラスで制御
+        // ============================================================
+        this.sprite.body.setVelocity(0, this.speed);
 
-        // プレイヤーに向かって移動する
-        const dx = px - ex;
-        const dy = py - ey;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist > 5) {
-            // 方向を正規化して速度を掛ける
-            this.sprite.body.setVelocity(
-                (dx / dist) * this.speed,
-                (dy / dist) * this.speed
-            );
-        } else {
-            this.sprite.body.setVelocity(0, 0);
-        }
-
-        // スナイパーは定期的に弾を発射する
+        // スナイパーは定期的にプレイヤーへ向けて弾を発射する
         if (this.shootsBack) {
             this.shootTimer -= delta;
             if (this.shootTimer <= 0) {

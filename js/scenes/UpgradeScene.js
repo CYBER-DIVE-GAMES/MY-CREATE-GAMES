@@ -56,9 +56,9 @@ class UpgradeScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         // ============================================================
-        // 3つの選択カードを横に並べる
+        // 3つの選択カードを横に並べる（ポートレート対応）
         // ============================================================
-        const cardW     = Math.min(240, (W - 80) / 3);
+        const cardW     = Math.min(120, (W - 40) / 3);
         const cardH     = 200;
         const cardSpacing = 20;
         const totalW    = this.choices.length * cardW + (this.choices.length - 1) * cardSpacing;
@@ -138,9 +138,11 @@ class UpgradeScene extends Phaser.Scene {
         };
 
         this.add.text(x + w / 2, y + 18, badgeLabels[choice.type] || '強化', {
-            fontSize: '12px',
+            fontSize: '10px',
             fontFamily: 'Arial, sans-serif',
-            color: badgeColors[choice.type] || '#aaaacc'
+            color: badgeColors[choice.type] || '#aaaacc',
+            wordWrap: { width: w - 6 },
+            align: 'center'
         }).setOrigin(0.5);
 
         // 区切り線
@@ -158,23 +160,23 @@ class UpgradeScene extends Phaser.Scene {
 
         // --- 名前 ---
         this.add.text(x + w / 2, y + 108, choice.name, {
-            fontSize: '14px',
+            fontSize: '11px',
             fontFamily: 'Arial Black, sans-serif',
             color: '#ffffff',
             stroke: '#000000',
             strokeThickness: 2,
-            wordWrap: { width: w - 16 },
+            wordWrap: { width: w - 8 },
             align: 'center'
         }).setOrigin(0.5);
 
         // --- 説明 ---
-        this.add.text(x + w / 2, y + 148, choice.description, {
-            fontSize: '12px',
+        this.add.text(x + w / 2, y + 136, choice.description, {
+            fontSize: '9px',
             fontFamily: 'Arial, sans-serif',
             color: '#aaaacc',
-            wordWrap: { width: w - 20 },
+            wordWrap: { width: w - 8 },
             align: 'center',
-            lineSpacing: 3
+            lineSpacing: 2
         }).setOrigin(0.5, 0);
 
         // --- クリック範囲 ---
@@ -211,6 +213,7 @@ class UpgradeScene extends Phaser.Scene {
             gameScene.updateWeaponList();
         }
 
+        SOUND.playUpgradeSelect();
         // このシーンを終了する
         this.scene.stop('UpgradeScene');
     }

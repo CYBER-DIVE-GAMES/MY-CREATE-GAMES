@@ -22,113 +22,118 @@ const ENEMY_DATA = {
 
     // ==================== 通常敵 ====================
 
-    // 【グラント】最も基本的な敵。まっすぐ向かってくる
+    // 【グラント】最も基本的な敵。スライム型宇宙人
     grunt: {
         id: 'grunt',
+        textureKey: 'enemy_slime',   // BootSceneで生成するテクスチャキー
         hp: 30,
         damage: 10,
         speed: 75,
         xpValue: 10,
-        coinChance: 0.10, // 10%でコインドロップ
+        coinChance: 0.10,
         coinAmount: [1, 2],
-        size: 22,
-        color: 0xff4444, // 赤
+        size: 26,
+        color: 0xff4444,
         scoreValue: 100,
         isBoss: false
     },
 
-    // 【スピーダー】速いが弱い敵。素早く向かってくる
+    // 【スピーダー】速いが弱い敵。クラゲ型宇宙人
     speeder: {
         id: 'speeder',
+        textureKey: 'enemy_jellyfish',
         hp: 15,
         damage: 8,
         speed: 160,
         xpValue: 15,
         coinChance: 0.08,
         coinAmount: [1, 2],
-        size: 16,
-        color: 0xff8800, // オレンジ
+        size: 22,
+        color: 0xff8800,
         scoreValue: 150,
         isBoss: false
     },
 
-    // 【タンク】遅いが頑丈な敵。倒すのに時間がかかる
+    // 【タンク】遅いが頑丈な敵。タコ型宇宙人
     tank: {
         id: 'tank',
+        textureKey: 'enemy_octopus',
         hp: 120,
         damage: 20,
         speed: 45,
         xpValue: 35,
         coinChance: 0.25,
         coinAmount: [2, 4],
-        size: 32,
-        color: 0xaa0000, // 暗い赤
+        size: 36,
+        color: 0xaa0000,
         scoreValue: 350,
         isBoss: false
     },
 
-    // 【スナイパー】少し離れた距離からプレイヤーを狙ってくる
+    // 【スナイパー】プレイヤーに向けて弾を撃つ宇宙人
     sniper: {
         id: 'sniper',
+        textureKey: 'enemy_shooter',
         hp: 25,
         damage: 15,
         speed: 60,
         xpValue: 20,
         coinChance: 0.12,
         coinAmount: [1, 3],
-        size: 18,
-        color: 0xaa44ff, // 紫
+        size: 22,
+        color: 0xaa44ff,
         scoreValue: 200,
         isBoss: false,
-        shootsBack: true // プレイヤーに向けて弾を撃つ
+        shootsBack: true
     },
 
     // ==================== ボス ====================
 
-    // 【ミニボス】5分ごとに出現する中型ボス
+    // 【ミニボス】5分ごとに出現する小型UFO
     miniBoss: {
         id: 'miniBoss',
+        textureKey: 'boss_ufo_mini',
         hp: 1500,
         damage: 30,
         speed: 55,
         xpValue: 300,
-        coinChance: 1.0, // 必ずドロップ
+        coinChance: 1.0,
         coinAmount: [15, 25],
-        size: 52,
-        color: 0x880000, // 暗い赤
+        size: 60,
+        color: 0x880000,
         scoreValue: 3000,
         isBoss: true
     },
 
-    // 【中ボス】20分で出現する強力なボス
-    // 撃破後は難易度が大幅に上昇する
+    // 【中ボス】20分で出現する中型UFO
     midBoss: {
         id: 'midBoss',
+        textureKey: 'boss_ufo_mid',
         hp: 8000,
         damage: 45,
         speed: 65,
         xpValue: 800,
         coinChance: 1.0,
         coinAmount: [50, 80],
-        size: 72,
-        color: 0x550033, // 暗い紫
+        size: 80,
+        color: 0x550033,
         scoreValue: 15000,
         isBoss: true,
         isMidBoss: true
     },
 
-    // 【最終ボス】30分で出現するラスボス
-    // これを倒すとステージクリア
+    // 【最終ボス】30分で出現するラスボス大型UFO
     finalBoss: {
         id: 'finalBoss',
+        textureKey: 'boss_ufo_final',
         hp: 30000,
         damage: 70,
         speed: 70,
         xpValue: 2000,
         coinChance: 1.0,
         coinAmount: [150, 250],
-        size: 92,
-        color: 0x220011, // 非常に暗い赤
+        size: 100,
+        color: 0x220011,
         scoreValue: 60000,
         isBoss: true,
         isFinalBoss: true

@@ -6,9 +6,9 @@
 
 'use strict';
 
-// ゲームキャンバスのサイズ
-const GAME_WIDTH  = 960;
-const GAME_HEIGHT = 640;
+// ゲームキャンバスのサイズ（スマホ縦長スタイル）
+const GAME_WIDTH  = 420;
+const GAME_HEIGHT = 720;
 
 // ============================================================
 // Phaser3 の設定オブジェクト
