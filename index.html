@@ -1,41 +1,133 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>城砦の守護者 - Castle Defender</title>
-    <link rel="stylesheet" href="css/style.css">
-
-    <!-- Phaser 3 (CDN) -->
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fantasy RPG</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div id="game-container"></div>
 
-    <!-- ゲームデータ -->
-    <script src="js/data/UnitData.js"></script>
-    <script src="js/data/StageData.js"></script>
-    <script src="js/data/UpgradeData.js"></script>
+  <!-- タイトル画面 -->
+  <div id="screen-title" class="screen active">
+    <div class="title-box">
+      <h1>FANTASY RPG</h1>
+      <p>勇者よ、魔王を倒せ！</p>
+      <button id="btn-start">ゲームスタート</button>
+    </div>
+  </div>
 
-    <!-- マネージャー -->
-    <script src="js/managers/SaveManager.js"></script>
-    <script src="js/managers/WaveManager.js"></script>
-    <script src="js/managers/UIManager.js"></script>
+  <!-- フィールド画面 -->
+  <div id="screen-field" class="screen">
+    <div class="field-box">
+      <h2 id="field-title">フィールド</h2>
+      <p id="field-message">次の行動を選んでください。</p>
+      <div class="field-status">
+        <span>HP: <span id="field-hp">--</span></span>
+        <span>MP: <span id="field-mp">--</span></span>
+        <span>Lv: <span id="field-lv">--</span></span>
+      </div>
+      <div class="field-buttons">
+        <button id="btn-battle">⚔ 戦う（ランダムエンカウント）</button>
+        <button id="btn-rest">🏕 休む（HP/MP回復）</button>
+        <button id="btn-status">📊 ステータス確認</button>
+        <button id="btn-boss" class="boss-btn">💀 魔王に挑む</button>
+      </div>
+    </div>
+  </div>
 
-    <!-- ゲームオブジェクト -->
-    <script src="js/objects/Castle.js"></script>
-    <script src="js/objects/Projectile.js"></script>
-    <script src="js/objects/Unit.js"></script>
+  <!-- 戦闘画面 -->
+  <div id="screen-battle" class="screen">
+    <div class="battle-box">
+      <!-- 敵 -->
+      <div class="enemy-area">
+        <div id="enemy-name" class="enemy-name">スライム</div>
+        <div class="enemy-sprite" id="enemy-sprite">👾</div>
+        <div class="hp-bar-wrap">
+          <div id="enemy-hp-bar" class="hp-bar enemy-hp-bar"></div>
+        </div>
+        <div id="enemy-hp-text">HP: 30 / 30</div>
+      </div>
 
-    <!-- シーン -->
-    <script src="js/scenes/BootScene.js"></script>
-    <script src="js/scenes/MenuScene.js"></script>
-    <script src="js/scenes/WorldMapScene.js"></script>
-    <script src="js/scenes/GameScene.js"></script>
-    <script src="js/scenes/ResultScene.js"></script>
-    <script src="js/scenes/UpgradeScene.js"></script>
+      <!-- バトルログ -->
+      <div id="battle-log" class="battle-log">
+        <p>戦闘開始！</p>
+      </div>
 
-    <!-- メイン初期化 -->
-    <script src="js/main.js"></script>
+      <!-- プレイヤー情報 -->
+      <div class="player-status-bar">
+        <span>HP: <span id="battle-player-hp">--</span></span>
+        <span>MP: <span id="battle-player-mp">--</span></span>
+        <span>Lv: <span id="battle-player-lv">--</span></span>
+      </div>
+
+      <!-- コマンド -->
+      <div id="battle-commands" class="battle-commands">
+        <button class="cmd-btn" data-action="attack">⚔ 攻撃</button>
+        <button class="cmd-btn" data-action="magic">✨ 魔法</button>
+        <button class="cmd-btn" data-action="item">🧪 アイテム</button>
+        <button class="cmd-btn" data-action="run">🏃 逃げる</button>
+      </div>
+
+      <!-- 魔法選択 -->
+      <div id="magic-menu" class="magic-menu hidden">
+        <button class="magic-btn" data-spell="fire">🔥 ファイア (MP5)</button>
+        <button class="magic-btn" data-spell="thunder">⚡ サンダー (MP8)</button>
+        <button class="magic-btn" data-spell="heal">💚 ヒール (MP4)</button>
+        <button class="magic-btn back-btn" data-spell="back">← 戻る</button>
+      </div>
+
+      <!-- アイテム選択 -->
+      <div id="item-menu" class="item-menu hidden">
+        <button class="item-btn" data-item="potion">🧪 ポーション (<span id="item-potion-count">--</span>個)</button>
+        <button class="item-btn back-btn" data-item="back">← 戻る</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ステータス画面 -->
+  <div id="screen-status" class="screen">
+    <div class="status-box">
+      <h2>ステータス</h2>
+      <table class="status-table">
+        <tr><th>名前</th><td id="st-name">--</td></tr>
+        <tr><th>レベル</th><td id="st-lv">--</td></tr>
+        <tr><th>HP</th><td id="st-hp">--</td></tr>
+        <tr><th>MP</th><td id="st-mp">--</td></tr>
+        <tr><th>攻撃力</th><td id="st-atk">--</td></tr>
+        <tr><th>魔法力</th><td id="st-mag">--</td></tr>
+        <tr><th>防御力</th><td id="st-def">--</td></tr>
+        <tr><th>経験値</th><td id="st-exp">--</td></tr>
+        <tr><th>次のLvまで</th><td id="st-next">--</td></tr>
+        <tr><th>ポーション</th><td id="st-potion">--</td></tr>
+      </table>
+      <button id="btn-back-field">フィールドに戻る</button>
+    </div>
+  </div>
+
+  <!-- ゲームオーバー画面 -->
+  <div id="screen-gameover" class="screen">
+    <div class="gameover-box">
+      <h2>💀 ゲームオーバー</h2>
+      <p>力尽きてしまった...</p>
+      <button id="btn-retry">もう一度挑戦する</button>
+    </div>
+  </div>
+
+  <!-- クリア画面 -->
+  <div id="screen-clear" class="screen">
+    <div class="clear-box">
+      <h2>🏆 クリア！</h2>
+      <p>魔王を倒し、世界に平和が訪れた！</p>
+      <p id="clear-stats"></p>
+      <button id="btn-retry-clear">もう一度遊ぶ</button>
+    </div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/battle.js"></script>
+  <script src="js/field.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>
