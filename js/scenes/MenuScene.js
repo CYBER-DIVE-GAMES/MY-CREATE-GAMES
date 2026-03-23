@@ -1,238 +1,418 @@
 // ============================================================
-// MenuScene.js - メインメニュー
+// js/scenes/MenuScene.js
+// メインメニューシーン
+// タイトル表示・ステージ選択・恒久強化ショップを管理します
 // ============================================================
+
+'use strict';
 
 class MenuScene extends Phaser.Scene {
     constructor() {
         super({ key: 'MenuScene' });
     }
 
+    // ============================================================
+    // create()
+    // ============================================================
     create() {
-        const { width: W, height: H } = this.scale;
+        const W = this.scale.width;
+        const H = this.scale.height;
+
+        // セーブデータを読み込む
         this.saveData = SaveManager.load();
 
-        // ============ 背景 ============
+        // 現在表示中の画面（'title' or 'shop'）
+        this.currentView = 'title';
+
+        // UIオブジェクトを管理するグループ（再描画時にまとめて削除）
+        this.viewObjects = [];
+
+        // 宇宙背景を描画
         this.drawBackground(W, H);
 
-        // ============ タイトル ============
-        this.add.text(W / 2, H * 0.18, '城砦の守護者', {
-            fontSize: '42px',
-            fill: '#ffee88',
-            fontFamily: 'monospace',
-            stroke: '#884400',
-            strokeThickness: 5,
-        }).setOrigin(0.5, 0.5);
+        // タイトル画面を表示
+        this.showTitleView(W, H);
+    }
 
-        this.add.text(W / 2, H * 0.27, 'Castle Defender', {
-            fontSize: '18px',
-            fill: '#bbaa66',
-            fontFamily: 'monospace',
-        }).setOrigin(0.5, 0.5);
+    // ============================================================
+    // drawBackground(W, H)
+    // 宇宙っぽい背景を描画する（星、グリッド線）
+    // ============================================================
+    drawBackground(W, H) {
+        const bg = this.add.graphics();
 
-        // ============ ボタン ============
-        const hasSave = SaveManager.hasSave();
+        // 暗い宇宙の背景
+        bg.fillStyle(0x000011);
+        bg.fillRect(0, 0, W, H);
 
-        // ゲームスタートボタン
-        const startLabel = hasSave ? '続きから' : 'はじめる';
-        this.createButton(W / 2, H * 0.46, 220, 52, startLabel, 0x1144aa, 0x3366cc, () => {
-            this.scene.start('WorldMapScene');
+        // グリッドライン（SF感を演出）
+        bg.lineStyle(1, 0x001133, 0.4);
+        for (let x = 0; x <= W; x += 40) {
+            bg.beginPath(); bg.moveTo(x, 0); bg.lineTo(x, H); bg.strokePath();
+        }
+        for (let y = 0; y <= H; y += 40) {
+            bg.beginPath(); bg.moveTo(0, y); bg.lineTo(W, y); bg.strokePath();
+        }
+
+        // 星（ランダム配置）
+        bg.fillStyle(0xffffff, 0.8);
+        for (let i = 0; i < 80; i++) {
+            const sx = Phaser.Math.Between(0, W);
+            const sy = Phaser.Math.Between(0, H);
+            const sz = Math.random() < 0.2 ? 2 : 1;
+            bg.fillRect(sx, sy, sz, sz);
+        }
+
+        // 遠くの星雲（大きな半透明の円）
+        for (let i = 0; i < 4; i++) {
+            bg.fillStyle(Phaser.Math.Between(0x002244, 0x220044), 0.06);
+            bg.fillCircle(
+                Phaser.Math.Between(0, W),
+                Phaser.Math.Between(0, H),
+                Phaser.Math.Between(60, 150)
+            );
+        }
+    }
+
+    // ============================================================
+    // showTitleView(W, H)
+    // タイトル + ステージ選択画面を表示する（ポートレート対応）
+    // ============================================================
+    showTitleView(W, H) {
+        this.clearView();
+
+        // ---- タイトル文字（ポートレート: フォントを縮小）----
+        const title = this.add.text(W / 2, H * 0.07, 'CYBER DIVE', {
+            fontSize: '36px',
+            fontFamily: 'Arial Black, sans-serif',
+            color: '#00ffff',
+            stroke: '#004466',
+            strokeThickness: 4
+        }).setOrigin(0.5);
+        this.viewObjects.push(title);
+
+        const subtitle = this.add.text(W / 2, H * 0.14, 'ローグライク・シューター', {
+            fontSize: '14px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#aaffff'
+        }).setOrigin(0.5);
+        this.viewObjects.push(subtitle);
+
+        // ---- コイン表示 ----
+        const coinDisplay = this.add.text(W / 2, H * 0.20, `💰 所持コイン: ${this.saveData.totalCoins} 枚`, {
+            fontSize: '14px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#ffcc00'
+        }).setOrigin(0.5);
+        this.viewObjects.push(coinDisplay);
+
+        // ---- ステージ選択カード（横3枚：W-20の幅に収める）----
+        const stages = [
+            { id: 1, label: 'STAGE 1', diff: '低難易度', color: 0x004400, borderColor: 0x00aa44 },
+            { id: 2, label: 'STAGE 2', diff: '中難易度', color: 0x443300, borderColor: 0xaaaa00 },
+            { id: 3, label: 'STAGE 3', diff: '高難易度', color: 0x440000, borderColor: 0xaa2222 },
+        ];
+
+        const cardSpacing = 8;
+        const cardW = Math.floor((W - 20 - cardSpacing * 2) / 3); // 3枚均等分割
+        const cardH = 90;
+        const startX = 10;
+
+        stages.forEach((stage, i) => {
+            const cx = startX + i * (cardW + cardSpacing);
+            const cy = H * 0.28;
+            this.createStageCard(cx, cy, cardW, cardH, stage);
         });
 
-        // 新規ゲームボタン（セーブがある時だけ表示）
-        if (hasSave) {
-            this.createButton(W / 2, H * 0.57, 220, 44, '最初から', 0x443300, 0x775522, () => {
-                this.confirmNewGame(W, H);
-            });
-        }
+        // ---- 操作説明 ----
+        const helpText = [
+            '操作方法:',
+            'A / D キー: 左右移動',
+            '自動攻撃（移動のみ操作）',
+            'レベルアップ時に3択で強化',
+            'XP・コインは真下に落下',
+        ].join('\n');
 
-        // ============ プレイヤー情報 ============
-        if (hasSave) {
-            const lv = this.saveData.playerLevel;
-            const gold = this.saveData.gold;
-            const cleared = this.saveData.clearedStages.length;
-            this.add.text(W / 2, H * 0.74, `Lv.${lv}  Gold: ${gold}  クリア: ${cleared}/30`, {
-                fontSize: '13px',
-                fill: '#aaaacc',
-                fontFamily: 'monospace',
-            }).setOrigin(0.5, 0.5);
-        }
+        const helpObj = this.add.text(W / 2, H * 0.53, helpText, {
+            fontSize: '13px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#8899aa',
+            align: 'center',
+            lineSpacing: 5
+        }).setOrigin(0.5);
+        this.viewObjects.push(helpObj);
 
-        // ============ 装飾ユニット ============
-        this.drawDecorativeUnits(W, H);
+        // ---- 恒久強化ショップボタン ----
+        const shopBtn = this.createButton(W / 2, H * 0.80, W - 40, 44, '🏪 恒久強化ショップ', 0x112244, 0x224466, () => {
+            this.showShopView(W, H);
+        });
+        this.viewObjects.push(...shopBtn);
 
-        // ============ バージョン ============
-        this.add.text(W - 8, H - 6, 'v1.0', {
-            fontSize: '10px',
-            fill: '#555566',
-            fontFamily: 'monospace',
-        }).setOrigin(1, 1);
+        // ---- バージョン表示 ----
+        const verObj = this.add.text(W / 2, H * 0.93, 'v2.0  CYBER DIVE', {
+            fontSize: '11px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#334455'
+        }).setOrigin(0.5);
+        this.viewObjects.push(verObj);
     }
 
-    drawBackground(W, H) {
-        const g = this.add.graphics();
+    // ============================================================
+    // createStageCard(x, y, w, h, stage)
+    // ステージ選択カードを生成する
+    // ============================================================
+    createStageCard(x, y, w, h, stage) {
+        const isCleared = this.saveData.clearedStages.includes(stage.id);
 
-        // 空グラデーション（簡易）
-        g.fillGradientStyle(0x0a0a2a, 0x0a0a2a, 0x1a1a4a, 0x1a1a4a, 1);
-        g.fillRect(0, 0, W, H);
-
-        // 地面
-        g.fillStyle(0x223322);
-        g.fillRect(0, H * 0.7, W, H * 0.3);
-
-        // 草のライン
-        g.fillStyle(0x334433);
-        g.fillRect(0, H * 0.7, W, 4);
-
-        // 星（装飾）
-        g.fillStyle(0xffffff, 0.6);
-        for (let i = 0; i < 40; i++) {
-            const sx = Phaser.Math.Between(0, W);
-            const sy = Phaser.Math.Between(0, H * 0.6);
-            g.fillRect(sx, sy, 1, 1);
-        }
-
-        // 山（シルエット）
-        g.fillStyle(0x111133);
-        g.fillTriangle(80, H * 0.7, 200, H * 0.4, 320, H * 0.7);
-        g.fillTriangle(550, H * 0.7, 680, H * 0.38, 800, H * 0.7);
-        g.fillStyle(0x0d0d22);
-        g.fillTriangle(150, H * 0.7, 250, H * 0.45, 370, H * 0.7);
-        g.fillTriangle(480, H * 0.7, 610, H * 0.42, 740, H * 0.7);
-
-        // 城シルエット（左）
-        this.drawCastleSilhouette(g, 60, H * 0.7, 0x112233);
-        // 城シルエット（右）
-        this.drawCastleSilhouette(g, W - 60, H * 0.7, 0x221111);
-    }
-
-    drawCastleSilhouette(g, cx, groundY, color) {
-        g.fillStyle(color);
-        const w = 50, h = 80;
-        g.fillRect(cx - w / 2, groundY - h, w, h);
-        // 塔
-        g.fillRect(cx - w / 2 - 8, groundY - h - 20, 14, h + 20);
-        g.fillRect(cx + w / 2 - 6, groundY - h - 20, 14, h + 20);
-        // 城壁の凸凹
-        for (let i = 0; i < 4; i++) {
-            g.fillRect(cx - w / 2 + i * 14, groundY - h - 8, 8, 8);
-        }
-    }
-
-    createButton(x, y, w, h, label, bgColor, hoverColor, callback) {
         const bg = this.add.graphics();
         const drawNormal = () => {
             bg.clear();
-            bg.fillStyle(bgColor);
-            bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 8);
-            bg.lineStyle(2, 0x88aaff);
-            bg.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 8);
+            bg.fillStyle(stage.color);
+            bg.fillRoundedRect(x, y, w, h, 8);
+            bg.lineStyle(2, stage.borderColor);
+            bg.strokeRoundedRect(x, y, w, h, 8);
         };
         const drawHover = () => {
             bg.clear();
-            bg.fillStyle(hoverColor);
-            bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 8);
-            bg.lineStyle(2, 0xbbddff);
-            bg.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 8);
+            bg.fillStyle(stage.color);
+            bg.fillRoundedRect(x, y, w, h, 8);
+            bg.lineStyle(3, stage.borderColor);
+            bg.strokeRoundedRect(x, y, w, h, 8);
         };
         drawNormal();
+        this.viewObjects.push(bg);
 
-        this.add.text(x, y, label, {
-            fontSize: '18px',
-            fill: '#ffffff',
-            fontFamily: 'monospace',
-            stroke: '#000000',
-            strokeThickness: 2,
-        }).setOrigin(0.5, 0.5).setDepth(2);
-
-        const hitArea = this.add.rectangle(x, y, w, h, 0xffffff, 0)
-            .setInteractive({ useHandCursor: true });
-        hitArea.on('pointerdown', () => { callback(); });
-        hitArea.on('pointerover', drawHover);
-        hitArea.on('pointerout', drawNormal);
-
-        return bg;
-    }
-
-    confirmNewGame(W, H) {
-        // 確認ダイアログ
-        const overlay = this.add.graphics().setDepth(30);
-        overlay.fillStyle(0x000000, 0.7);
-        overlay.fillRect(0, 0, W, H);
-
-        const dlgW = 320, dlgH = 150;
-        const dlgX = W / 2 - dlgW / 2;
-        const dlgY = H / 2 - dlgH / 2;
-
-        overlay.fillStyle(0x111133);
-        overlay.fillRoundedRect(dlgX, dlgY, dlgW, dlgH, 8);
-        overlay.lineStyle(2, 0x4466aa);
-        overlay.strokeRoundedRect(dlgX, dlgY, dlgW, dlgH, 8);
-
-        const msg = this.add.text(W / 2, H / 2 - 30, 'セーブデータを消去して\n最初からやり直しますか？', {
+        const label = this.add.text(x + w / 2, y + h * 0.22, stage.label, {
             fontSize: '14px',
-            fill: '#ffaaaa',
-            fontFamily: 'monospace',
-            align: 'center',
-        }).setOrigin(0.5, 0.5).setDepth(31);
+            fontFamily: 'Arial Black, sans-serif',
+            color: '#ffffff',
+            wordWrap: { width: w - 6 },
+            align: 'center'
+        }).setOrigin(0.5);
+        this.viewObjects.push(label);
 
-        const yesBtn = this.createButton(W / 2 - 60, H / 2 + 40, 100, 36, 'はい', 0x882222, 0xaa3333, () => {
-            SaveManager.reset();
-            overlay.destroy();
-            msg.destroy();
-            yesBtn.destroy();
-            noBtn.destroy();
-            this.scene.start('WorldMapScene');
-        });
-        yesBtn.setDepth(31);
+        const diff = this.add.text(x + w / 2, y + h * 0.52, stage.diff, {
+            fontSize: '12px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#cccccc',
+            wordWrap: { width: w - 6 },
+            align: 'center'
+        }).setOrigin(0.5);
+        this.viewObjects.push(diff);
 
-        const noBtn = this.createButton(W / 2 + 60, H / 2 + 40, 100, 36, 'いいえ', 0x224422, 0x336633, () => {
-            overlay.destroy();
-            msg.destroy();
-            yesBtn.destroy();
-            noBtn.destroy();
-        });
-        noBtn.setDepth(31);
-    }
-
-    drawDecorativeUnits(W, H) {
-        // 装飾用のユニットシルエット（タイトル画面用）
-        const g = this.add.graphics().setDepth(3);
-        const groundY = H * 0.7;
-
-        // 左側：プレイヤーユニットシルエット（青）
-        const playerUnits = ['soldier', 'archer', 'knight'];
-        playerUnits.forEach((key, i) => {
-            const px = 100 + i * 60;
-            const py = groundY - 5;
-            this.drawUnitSilhouette(g, key, px, py, 0x3355aa);
-        });
-
-        // 右側：敵ユニットシルエット（赤）
-        const enemyUnits = ['orc', 'goblin', 'troll'];
-        enemyUnits.forEach((key, i) => {
-            const px = W - 100 - i * 60;
-            const py = groundY - 5;
-            this.drawUnitSilhouette(g, key, px, py, 0xaa3322, true);
-        });
-    }
-
-    drawUnitSilhouette(g, unitKey, x, y, color, flip = false) {
-        const pixels = UNIT_PIXELS[unitKey];
-        if (!pixels) return;
-        const ps = 2;
-        const cols = pixels[0].length;
-        const rows = pixels.length;
-        const offsetX = -Math.floor(cols * ps / 2);
-        const offsetY = -rows * ps;
-
-        g.fillStyle(color, 0.6);
-        for (let row = 0; row < rows; row++) {
-            for (let col = 0; col < cols; col++) {
-                const ch = pixels[row][col];
-                if (ch === '_') continue;
-                const drawCol = flip ? (cols - 1 - col) : col;
-                g.fillRect(x + offsetX + drawCol * ps, y + offsetY + row * ps, ps, ps);
-            }
+        // クリア表示
+        if (isCleared) {
+            const clearMark = this.add.text(x + w / 2, y + h * 0.78, 'CLEAR ✓', {
+                fontSize: '10px',
+                fontFamily: 'Arial, sans-serif',
+                color: '#00ff88'
+            }).setOrigin(0.5);
+            this.viewObjects.push(clearMark);
         }
+
+        // クリックエリア
+        const hit = this.add.rectangle(x + w / 2, y + h / 2, w, h, 0x000000, 0)
+            .setInteractive({ useHandCursor: true });
+        hit.on('pointerover', drawHover);
+        hit.on('pointerout', drawNormal);
+        hit.on('pointerdown', () => {
+            this.scene.start('GameScene', { stageId: stage.id, saveData: this.saveData });
+        });
+        this.viewObjects.push(hit);
+    }
+
+    // ============================================================
+    // showShopView(W, H)
+    // 恒久強化ショップ画面を表示する
+    // ============================================================
+    showShopView(W, H) {
+        this.clearView();
+
+        // ---- タイトル ----
+        const title = this.add.text(W / 2, 18, '🏪 恒久強化ショップ', {
+            fontSize: '24px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#ffcc00',
+            stroke: '#443300',
+            strokeThickness: 3
+        }).setOrigin(0.5, 0);
+        this.viewObjects.push(title);
+
+        // ---- コイン表示 ----
+        this.coinText = this.add.text(W - 10, 20, `💰 ${this.saveData.totalCoins}`, {
+            fontSize: '18px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#ffcc00'
+        }).setOrigin(1, 0);
+        this.viewObjects.push(this.coinText);
+
+        // ---- 各強化アイテム ----
+        const cardW = W - 40;
+        const cardH = 72;
+        const startY = 60;
+
+        PERMANENT_UPGRADES.forEach((upgrade, i) => {
+            const cx = 20;
+            const cy = startY + i * (cardH + 8);
+            this.drawShopCard(upgrade, cx, cy, cardW, cardH);
+        });
+
+        // ---- 戻るボタン ----
+        const backBtns = this.createButton(W / 2, H - 30, 200, 40, '← タイトルへ戻る', 0x112233, 0x223344, () => {
+            this.showTitleView(W, H);
+        });
+        this.viewObjects.push(...backBtns);
+    }
+
+    // ============================================================
+    // drawShopCard(upgrade, x, y, w, h)
+    // ショップのアイテムカードを描画する
+    // ============================================================
+    drawShopCard(upgrade, x, y, w, h) {
+        const currentLevel = this.saveData.permUpgrades[upgrade.id] || 0;
+        const isMax = currentLevel >= upgrade.maxLevel;
+        const cost = upgrade.cost * (currentLevel + 1);
+        const canAfford = this.saveData.totalCoins >= cost;
+
+        const bg = this.add.graphics();
+        bg.fillStyle(isMax ? 0x112211 : 0x112233);
+        bg.fillRoundedRect(x, y, w, h, 6);
+        bg.lineStyle(1, isMax ? 0x338833 : 0x334455);
+        bg.strokeRoundedRect(x, y, w, h, 6);
+        this.viewObjects.push(bg);
+
+        // 名前
+        const nameObj = this.add.text(x + 12, y + 8, upgrade.name, {
+            fontSize: '15px',
+            fontFamily: 'Arial, sans-serif',
+            color: isMax ? '#88ff88' : '#aaccff'
+        });
+        this.viewObjects.push(nameObj);
+
+        // 説明
+        const descObj = this.add.text(x + 12, y + 28, upgrade.description, {
+            fontSize: '12px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#778899'
+        });
+        this.viewObjects.push(descObj);
+
+        // レベルバー
+        const barX = x + 12;
+        const barY = y + 52;
+        const barW = 120;
+        const barH = 8;
+        const barBg = this.add.graphics();
+        barBg.fillStyle(0x001122);
+        barBg.fillRect(barX, barY, barW, barH);
+        this.viewObjects.push(barBg);
+
+        const barFill = this.add.graphics();
+        barFill.fillStyle(0x44aaff);
+        if (currentLevel > 0) {
+            barFill.fillRect(barX, barY, Math.round(barW * currentLevel / upgrade.maxLevel), barH);
+        }
+        this.viewObjects.push(barFill);
+
+        const levelObj = this.add.text(barX + barW + 8, barY - 2, `Lv ${currentLevel}/${upgrade.maxLevel}`, {
+            fontSize: '11px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#aabbcc'
+        });
+        this.viewObjects.push(levelObj);
+
+        // 購入ボタン（最大レベルでなければ表示）
+        if (!isMax) {
+            const btnX = x + w - 110;
+            const btnY = y + h / 2 - 16;
+            const btnW = 100;
+            const btnH = 32;
+
+            const btnBg = this.add.graphics();
+            const drawBtn = (hover) => {
+                btnBg.clear();
+                const col = hover && canAfford ? 0x225533 : canAfford ? 0x113322 : 0x1a1a1a;
+                btnBg.fillStyle(col);
+                btnBg.fillRoundedRect(btnX, btnY, btnW, btnH, 5);
+                btnBg.lineStyle(1, canAfford ? 0x44aa66 : 0x333333);
+                btnBg.strokeRoundedRect(btnX, btnY, btnW, btnH, 5);
+            };
+            drawBtn(false);
+            this.viewObjects.push(btnBg);
+
+            const costObj = this.add.text(btnX + btnW / 2, btnY + btnH / 2, `💰 ${cost}`, {
+                fontSize: '13px',
+                fontFamily: 'Arial, sans-serif',
+                color: canAfford ? '#88ff88' : '#555555'
+            }).setOrigin(0.5);
+            this.viewObjects.push(costObj);
+
+            if (canAfford) {
+                const hit = this.add.rectangle(btnX + btnW / 2, btnY + btnH / 2, btnW, btnH, 0, 0)
+                    .setInteractive({ useHandCursor: true });
+                hit.on('pointerover', () => drawBtn(true));
+                hit.on('pointerout',  () => drawBtn(false));
+                hit.on('pointerdown', () => {
+                    const result = SaveManager.buyPermUpgrade(this.saveData, upgrade.id);
+                    if (result.success) {
+                        this.coinText.setText(`💰 ${this.saveData.totalCoins}`);
+                        // カード内容を更新するためビュー再描画
+                        this.showShopView(this.scale.width, this.scale.height);
+                    }
+                });
+                this.viewObjects.push(hit);
+            }
+        } else {
+            const maxObj = this.add.text(x + w - 40, y + h / 2, 'MAX', {
+                fontSize: '16px',
+                fontFamily: 'Arial Black, sans-serif',
+                color: '#ffee44'
+            }).setOrigin(0.5);
+            this.viewObjects.push(maxObj);
+        }
+    }
+
+    // ============================================================
+    // clearView()
+    // 現在のビューオブジェクトを全て削除する（画面切り替え時に使用）
+    // ============================================================
+    clearView() {
+        for (const obj of this.viewObjects) {
+            if (obj && obj.destroy) obj.destroy();
+        }
+        this.viewObjects = [];
+    }
+
+    // ============================================================
+    // createButton(x, y, w, h, label, bgColor, hoverColor, callback)
+    // 汎用ボタンを作成する
+    // 戻り値: ボタンのUIオブジェクト配列
+    // ============================================================
+    createButton(x, y, w, h, label, bgColor, hoverColor, callback) {
+        const bg = this.add.graphics();
+        const draw = (hover) => {
+            bg.clear();
+            bg.fillStyle(hover ? hoverColor : bgColor);
+            bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 8);
+            bg.lineStyle(2, 0x4466aa);
+            bg.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 8);
+        };
+        draw(false);
+
+        const txt = this.add.text(x, y, label, {
+            fontSize: '16px',
+            fontFamily: 'Arial, sans-serif',
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5).setDepth(2);
+
+        const hit = this.add.rectangle(x, y, w, h, 0, 0)
+            .setInteractive({ useHandCursor: true }).setDepth(3);
+        hit.on('pointerover', () => draw(true));
+        hit.on('pointerout',  () => draw(false));
+        hit.on('pointerdown', callback);
+
+        return [bg, txt, hit];
     }
 }
