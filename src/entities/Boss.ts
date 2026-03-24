@@ -27,13 +27,15 @@ export class Boss {
   private timeSinceFire: number = 0;
   private moveDir: number = 1;
   private moveTimer: number = 0;
+  private spiralAngle: number = 0;
 
   constructor(
     scene: Phaser.Scene,
     pool: BulletPool,
     name: string,
     maxHp: number,
-    phases: BossPhaseConfig[]
+    phases: BossPhaseConfig[],
+    size: number = 40
   ) {
     this.scene = scene;
     this.pool = pool;
@@ -42,21 +44,21 @@ export class Boss {
     this.phases = phases;
 
     // ボス本体（プログラム描画）
-    const core = scene.add.circle(0, 0, 40, phases[0].color);
-    const eye1 = scene.add.circle(-15, -10, 8, 0xff0000);
-    const eye2 = scene.add.circle(15, -10, 8, 0xff0000);
-    const mouth = scene.add.arc(0, 10, 15, 200, 340, false, 0xff0000);
+    const core = scene.add.circle(0, 0, size, phases[0].color);
+    const eye1 = scene.add.circle(-size * 0.35, -size * 0.25, size * 0.18, 0xff0000);
+    const eye2 = scene.add.circle(size * 0.35, -size * 0.25, size * 0.18, 0xff0000);
+    const mouth = scene.add.arc(0, size * 0.2, size * 0.35, 200, 340, false, 0xff0000);
 
     this.sprite = scene.add.container(270, 120, [core, eye1, eye2, mouth]);
     this.sprite.setDepth(8);
 
     scene.physics.add.existing(this.sprite);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
-    this.body.setSize(80, 80);
-    this.body.setOffset(-40, -40);
+    this.body.setSize(size * 2, size * 2);
+    this.body.setOffset(-size, -size);
     this.body.setCollideWorldBounds(true);
 
-    // HP バー（画面上部）
+    // HP バー（画面下部）
     const bw = 500;
     this.hpBarBg = scene.add.rectangle(20, 940, bw, 18, 0x333333).setOrigin(0, 0.5).setDepth(100);
     this.hpBar = scene.add.rectangle(20, 940, bw, 18, 0xff2244).setOrigin(0, 0.5).setDepth(101);
@@ -108,16 +110,16 @@ export class Boss {
       this.timeSinceFire = 0;
     }
 
+    // スパイラル角度更新
+    this.spiralAngle += delta * 0.003;
+
     // HP バー更新
     const ratio = this.hp / this.maxHp;
     this.hpBar.width = 500 * ratio;
-
-    // HP バーの位置をスプライトに合わせる（固定位置）
   }
 
   private onPhaseChange(phase: number): void {
     this.currentPhase = phase;
-    // フェーズ変化フラッシュ
     const { color } = this.phases[phase];
     (this.sprite.list[0] as Phaser.GameObjects.Arc).setFillStyle(color);
     this.scene.cameras.main.shake(400, 0.015);
@@ -154,10 +156,9 @@ export class Boss {
         break;
 
       case 'spiral': {
-        const count = 6;
-        const baseAngle = (Date.now() / 500) % (Math.PI * 2);
+        const count = 8;
         for (let i = 0; i < count; i++) {
-          const angle = baseAngle + (i / count) * Math.PI * 2;
+          const angle = this.spiralAngle + (i / count) * Math.PI * 2;
           this.pool.fire(this.scene, x, y,
             Math.cos(angle) * spd, Math.sin(angle) * spd,
             8, 'enemy', 0xff88aa, 5);
@@ -168,7 +169,7 @@ export class Boss {
       case 'wall':
         for (let i = 0; i < 9; i++) {
           const xOffset = (i - 4) * 55;
-          if (Math.abs(xOffset) > 200) continue; // 端は省略（安全地帯を作る）
+          if (Math.abs(xOffset) > 200) continue; // 安全地帯を作る
           this.pool.fire(this.scene, x + xOffset, y,
             0, spd, 10, 'enemy', 0xffaa44, 8);
         }
@@ -188,13 +189,13 @@ export class Boss {
     this.scene.cameras.main.shake(600, 0.025);
 
     // 爆発演出
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 10; i++) {
       this.scene.time.delayedCall(i * 80, () => {
-        const ox = Phaser.Math.Between(-50, 50);
-        const oy = Phaser.Math.Between(-50, 50);
+        const ox = Phaser.Math.Between(-60, 60);
+        const oy = Phaser.Math.Between(-60, 60);
         const burst = this.scene.add.circle(
           this.sprite.x + ox, this.sprite.y + oy,
-          Phaser.Math.Between(15, 35), 0xff8800, 1
+          Phaser.Math.Between(15, 40), 0xff8800, 1
         );
         this.scene.tweens.add({
           targets: burst,
@@ -206,7 +207,7 @@ export class Boss {
       });
     }
 
-    this.scene.time.delayedCall(600, () => {
+    this.scene.time.delayedCall(800, () => {
       this.sprite.destroy();
       this.hpBarBg.destroy();
       this.hpBar.destroy();

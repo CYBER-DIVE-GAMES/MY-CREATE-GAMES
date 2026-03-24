@@ -93,7 +93,11 @@ export class SkillSystem {
 
     if (available.length === 0) return [];
 
-    Phaser.Utils.Array.Shuffle(available);
+    // Fisher-Yates shuffle
+    for (let i = available.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [available[i], available[j]] = [available[j], available[i]];
+    }
     return available.slice(0, Math.min(count, available.length));
   }
 

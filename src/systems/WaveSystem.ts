@@ -9,23 +9,30 @@ export type WaveEvent =
   | { type: 'boss'; id: string };
 
 // ステージ1のウェーブスケジュール（秒単位）
+// フェーズ1 MVP: 約3分でラスボス登場
 const STAGE1_SCHEDULE: Array<{ time: number; event: WaveEvent }> = [
+  // 序盤：狐火4体
   { time: 5,   event: { type: 'wave', enemies: [
     { key: 'foxfire', x: 100 }, { key: 'foxfire', x: 200 },
-    { key: 'foxfire', x: 300 }, { key: 'foxfire', x: 400 },
+    { key: 'foxfire', x: 340 }, { key: 'foxfire', x: 440 },
   ]}},
+  // 武者幽霊登場
   { time: 15,  event: { type: 'wave', enemies: [
     { key: 'ghost_warrior', x: 150 }, { key: 'ghost_warrior', x: 390 },
   ]}},
+  // 混合ウェーブ
   { time: 25,  event: { type: 'wave', enemies: [
     { key: 'foxfire', x: 100 }, { key: 'ghost_warrior', x: 270 },
     { key: 'foxfire', x: 440 },
   ]}},
+  // 武者幽霊×4
   { time: 40,  event: { type: 'wave', enemies: [
-    { key: 'ghost_warrior', x: 80 },{ key: 'ghost_warrior', x: 180 },
-    { key: 'ghost_warrior', x: 360 },{ key: 'ghost_warrior', x: 460 },
+    { key: 'ghost_warrior', x: 80 }, { key: 'ghost_warrior', x: 180 },
+    { key: 'ghost_warrior', x: 360 }, { key: 'ghost_warrior', x: 460 },
   ]}},
+  // ミニボス①：骸の剣鬼
   { time: 60,  event: { type: 'miniboss', id: 'miniboss1' }},
+  // ミニボス後の通常ウェーブ
   { time: 75,  event: { type: 'wave', enemies: [
     { key: 'foxfire', x: 100 }, { key: 'foxfire', x: 200 },
     { key: 'foxfire', x: 300 }, { key: 'foxfire', x: 400 },
@@ -35,6 +42,22 @@ const STAGE1_SCHEDULE: Array<{ time: number; event: WaveEvent }> = [
     { key: 'ghost_warrior', x: 100 }, { key: 'ghost_warrior', x: 270 },
     { key: 'ghost_warrior', x: 440 },
   ]}},
+  { time: 105, event: { type: 'wave', enemies: [
+    { key: 'foxfire', x: 80  }, { key: 'ghost_warrior', x: 160 },
+    { key: 'foxfire', x: 270 }, { key: 'ghost_warrior', x: 380 },
+    { key: 'foxfire', x: 460 },
+  ]}},
+  { time: 120, event: { type: 'wave', enemies: [
+    { key: 'ghost_warrior', x: 80  }, { key: 'ghost_warrior', x: 200 },
+    { key: 'ghost_warrior', x: 340 }, { key: 'ghost_warrior', x: 460 },
+  ]}},
+  { time: 140, event: { type: 'wave', enemies: [
+    { key: 'foxfire', x: 60  }, { key: 'foxfire', x: 160 },
+    { key: 'ghost_warrior', x: 270 },
+    { key: 'foxfire', x: 380 }, { key: 'foxfire', x: 480 },
+  ]}},
+  // ラスボス（フェーズ1 MVP 簡易版）：九尾の大妖怪 夜叫
+  { time: 165, event: { type: 'boss', id: 'finalboss' }},
 ];
 
 export class WaveSystem {

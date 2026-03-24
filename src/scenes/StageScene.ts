@@ -20,7 +20,7 @@ export class StageScene extends Phaser.Scene {
 
   // HUD
   private levelText!: Phaser.GameObjects.Text;
-  private xpBar!: Phaser.GameObjects.Rectangle;
+  private xpBarFill!: Phaser.GameObjects.Rectangle;
   private timerText!: Phaser.GameObjects.Text;
   private youkakuText!: Phaser.GameObjects.Text;
 
@@ -29,6 +29,7 @@ export class StageScene extends Phaser.Scene {
   private regenTimer: number = 0;
   private youkakuThisRun: number = 0;
   private stageCleared: boolean = false;
+  private gameOverTriggered: boolean = false;
 
   constructor() {
     super({ key: 'StageScene' });
@@ -37,7 +38,7 @@ export class StageScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.scale;
 
-    // 背景
+    // 背景グラデーション
     const bg = this.add.graphics();
     bg.fillGradientStyle(0x050510, 0x050510, 0x0a0520, 0x0a0520, 1);
     bg.fillRect(0, 0, width, height);
@@ -73,7 +74,7 @@ export class StageScene extends Phaser.Scene {
 
     // XP バー（画面上部）
     this.add.rectangle(0, 44, width, 10, 0x333333).setOrigin(0, 0.5).setDepth(100);
-    this.xpBar = this.add.rectangle(0, 44, 0, 10, 0x88ffaa).setOrigin(0, 0.5).setDepth(101);
+    this.xpBarFill = this.add.rectangle(0, 44, 0, 10, 0x88ffaa).setOrigin(0, 0.5).setDepth(101);
 
     this.levelText = this.add.text(width - 10, 20, 'Lv.1', {
       fontSize: '18px',
@@ -92,8 +93,9 @@ export class StageScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number): void {
-    if (this.paused || this.stageCleared) return;
+    if (this.paused || this.stageCleared || this.gameOverTriggered) return;
     if (!this.player.isAlive) {
+      this.gameOverTriggered = true;
       this.onGameOver();
       return;
     }
@@ -150,7 +152,6 @@ export class StageScene extends Phaser.Scene {
           const dmg = bullet.getData('damage') as number;
           enemy.takeDamage(dmg);
 
-          // XP・妖核ドロップ
           if (!enemy.isAlive) {
             this.xpSystem.addXP(enemy.config.xp);
             this.dropYoukaku(enemy.sprite.x, enemy.sprite.y, enemy.config.youkakuDrop, enemy.config.youkakuChance);
@@ -184,7 +185,6 @@ export class StageScene extends Phaser.Scene {
         const dmg = bullet.getData('damage') as number;
         this.player.takeDamage(dmg, time);
         this.enemyPool.killBullet(bullet);
-        // 被弾フラッシュ
         this.cameras.main.flash(100, 255, 0, 0, false);
       }
     });
@@ -202,11 +202,11 @@ export class StageScene extends Phaser.Scene {
     // 障害物とプレイヤーの接触（即死）
     this.obstacleSystem.obstacles.forEach((obs) => {
       if (!obs.active) return;
-      const bounds = obs.getBounds();
+      const bounds = this.obstacleSystem.getBounds(obs);
       const px = playerSprite.x;
       const py = playerSprite.y;
-      if (px > bounds.left - 10 && px < bounds.right + 10 &&
-          py > bounds.top - 10 && py < bounds.bottom + 10) {
+      if (px > bounds.left - 8 && px < bounds.right + 8 &&
+          py > bounds.top - 8 && py < bounds.bottom + 8) {
         this.player.takeDamage(9999, time);
       }
     });
@@ -230,7 +230,7 @@ export class StageScene extends Phaser.Scene {
   private updateHUD(): void {
     const { width } = this.scale;
     const ratio = this.xpSystem.getXPRatio();
-    this.xpBar.width = width * ratio;
+    this.xpBarFill.width = width * ratio;
     this.levelText.setText(`Lv.${this.xpSystem.getLevel()}`);
 
     const elapsed = Math.floor(this.waveSystem.getElapsed());
@@ -240,8 +240,8 @@ export class StageScene extends Phaser.Scene {
   }
 
   private onLevelUp(level: number): void {
-    // レベルアップ演出
     const { width, height } = this.scale;
+    // フラッシュ演出
     const flash = this.add.rectangle(width / 2, height / 2, width, height, 0xffffff, 0.3);
     this.tweens.add({
       targets: flash,
@@ -283,38 +283,68 @@ export class StageScene extends Phaser.Scene {
     });
   }
 
-  private onBossSpawn(_id: string, _type: 'miniboss' | 'midboss' | 'boss'): void {
-    // ミニボス1（骸の剣鬼・簡易版）をフェーズ1として実装
-    this.boss = new Boss(
-      this,
-      this.enemyPool,
-      '骸の剣鬼',
-      800,
-      [
-        { hpThreshold: 1.0, color: 0x887766, firePattern: 'spread5',  fireInterval: 2000, bulletSpeed: 200, moveSpeed: 80 },
-        { hpThreshold: 0.5, color: 0xff6644, firePattern: 'radial12', fireInterval: 1500, bulletSpeed: 230, moveSpeed: 120 },
-      ]
-    );
-
-    // ボス登場テロップ
+  private onBossSpawn(_id: string, type: 'miniboss' | 'midboss' | 'boss'): void {
     const { width, height } = this.scale;
-    const t = this.add.text(width / 2, height / 2 - 100, '-- 骸の剣鬼 --', {
-      fontSize: '36px',
-      color: '#ff8888',
-      stroke: '#880000',
-      strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(200);
-    this.tweens.add({
-      targets: t,
-      alpha: 0,
-      duration: 2000,
-      delay: 1000,
-      onComplete: () => t.destroy(),
-    });
+
+    if (type === 'boss') {
+      // ラスボス：九尾の大妖怪 夜叫（フェーズ1 MVP 簡易版）3フェーズ
+      this.boss = new Boss(
+        this,
+        this.enemyPool,
+        '九尾の大妖怪 夜叫',
+        1500,
+        [
+          { hpThreshold: 1.0, color: 0xddccaa, firePattern: 'radial12', fireInterval: 1800, bulletSpeed: 180, moveSpeed: 60 },
+          { hpThreshold: 0.6, color: 0xff9900, firePattern: 'spiral',   fireInterval: 1200, bulletSpeed: 220, moveSpeed: 110 },
+          { hpThreshold: 0.3, color: 0xff4400, firePattern: 'wall',     fireInterval: 900,  bulletSpeed: 260, moveSpeed: 150 },
+        ],
+        55   // size: ラスボスは少し大きめ
+      );
+
+      const t = this.add.text(width / 2, height / 2 - 120, '-- 九尾の大妖怪 夜叫 --', {
+        fontSize: '32px',
+        color: '#ffd700',
+        stroke: '#aa6600',
+        strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(200);
+      this.tweens.add({
+        targets: t,
+        alpha: 0,
+        duration: 2500,
+        delay: 1000,
+        onComplete: () => t.destroy(),
+      });
+
+    } else {
+      // ミニボス①：骸の剣鬼（簡易版）2フェーズ
+      this.boss = new Boss(
+        this,
+        this.enemyPool,
+        '骸の剣鬼',
+        800,
+        [
+          { hpThreshold: 1.0, color: 0x887766, firePattern: 'spread5',  fireInterval: 2000, bulletSpeed: 200, moveSpeed: 80 },
+          { hpThreshold: 0.5, color: 0xff6644, firePattern: 'radial12', fireInterval: 1500, bulletSpeed: 230, moveSpeed: 120 },
+        ]
+      );
+
+      const t = this.add.text(width / 2, height / 2 - 100, '-- 骸の剣鬼 --', {
+        fontSize: '36px',
+        color: '#ff8888',
+        stroke: '#880000',
+        strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(200);
+      this.tweens.add({
+        targets: t,
+        alpha: 0,
+        duration: 2000,
+        delay: 1000,
+        onComplete: () => t.destroy(),
+      });
+    }
   }
 
   private onBossDefeated(): void {
-    // ボス撃破 妖核大量ドロップ
     const drop = 20;
     this.youkakuThisRun += drop;
     this.youkakuText.setText(`妖核 +${this.youkakuThisRun}`);
@@ -333,8 +363,10 @@ export class StageScene extends Phaser.Scene {
       duration: 1500,
       onComplete: () => {
         t.destroy();
-        // フェーズ1ではボス1体撃破でステージクリア
-        this.onStageClear();
+        // ラスボス撃破でステージクリア、ミニボスは続行
+        if (this.waveSystem.getElapsed() >= 160) {
+          this.onStageClear();
+        }
       },
     });
     this.boss = null;
@@ -342,16 +374,23 @@ export class StageScene extends Phaser.Scene {
 
   private onStageClear(): void {
     this.stageCleared = true;
-    SaveSystem.addYoukaku(this.youkakuThisRun + 50); // クリアボーナス50
+    const bonus = 50;
+    SaveSystem.addYoukaku(this.youkakuThisRun + bonus);
     SaveSystem.markStageCleared(1);
 
     const { width, height } = this.scale;
-    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6).setDepth(300);
-    this.add.text(width / 2, height / 2 - 80, 'STAGE CLEAR!', {
-      fontSize: '48px',
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7).setDepth(300);
+    this.add.text(width / 2, height / 2 - 100, 'STAGE CLEAR!', {
+      fontSize: '52px',
       color: '#ffd700',
+      stroke: '#aa8800',
+      strokeThickness: 4,
     }).setOrigin(0.5).setDepth(301);
-    this.add.text(width / 2, height / 2, `獲得妖核：${this.youkakuThisRun + 50}`, {
+    this.add.text(width / 2, height / 2 - 20, '鬼狐の幽霊林を制した！', {
+      fontSize: '22px',
+      color: '#ffccaa',
+    }).setOrigin(0.5).setDepth(301);
+    this.add.text(width / 2, height / 2 + 50, `獲得妖核：${this.youkakuThisRun + bonus}`, {
       fontSize: '28px',
       color: '#cc88ff',
     }).setOrigin(0.5).setDepth(301);
@@ -363,14 +402,14 @@ export class StageScene extends Phaser.Scene {
   }
 
   private onGameOver(): void {
-    if (this.paused) return;
-    this.paused = true;
-
     // 半分没収して保存
     const kept = Math.floor(this.youkakuThisRun * 0.5);
     SaveSystem.addYoukaku(kept);
 
     this.scene.stop('LevelUpScene');
-    this.scene.start('GameOverScene', { youkakuKept: kept, youkakuLost: this.youkakuThisRun - kept });
+    this.scene.start('GameOverScene', {
+      youkakuKept: kept,
+      youkakuLost: this.youkakuThisRun - kept,
+    });
   }
 }
