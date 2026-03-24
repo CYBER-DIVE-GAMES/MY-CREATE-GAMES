@@ -25,6 +25,12 @@ export class SkillSystem {
   private acquired: Map<string, number> = new Map();
   private luckyBellLevel: number = 0;
   private currentLevel: number = 1; // レベル参照用（G1/G3の解放条件）
+  private baseStats: PlayerStats = { ...BASE_PLAYER_STATS };
+
+  /** 永続強化などを含むベースステータスを設定。recalculate の基点になる */
+  setBaseStats(base: PlayerStats): void {
+    this.baseStats = { ...base };
+  }
 
   getAcquired(): Map<string, number> { return this.acquired; }
   getSkillLevel(id: string): number  { return this.acquired.get(id) ?? 0; }
@@ -96,7 +102,7 @@ export class SkillSystem {
    */
   recalculate(stats: PlayerStats): void {
     const savedHp = stats.hp;
-    Object.assign(stats, { ...BASE_PLAYER_STATS });
+    Object.assign(stats, { ...this.baseStats });
 
     for (const [id, lv] of this.acquired) {
       const skill = ALL_SKILLS.find((s) => s.id === id);

@@ -53,6 +53,9 @@ export class BulletPool {
 
     bullet.setData('damage', damage);
     bullet.setData('owner', owner);
+    bullet.setData('pierceCount', null);
+    bullet.setData('reflectsLeft', null);
+    bullet.setData('onHitExplosion', null);
 
     return bullet;
   }
