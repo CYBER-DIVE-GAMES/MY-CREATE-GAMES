@@ -342,23 +342,19 @@ export class StageScene extends Phaser.Scene {
 
   private onStageClear(): void {
     this.stageCleared = true;
-    SaveSystem.addYoukaku(this.youkakuThisRun + 50); // クリアボーナス50
+    const clearBonus = 50;
+    const totalYoukaku = this.youkakuThisRun + clearBonus;
+    SaveSystem.addYoukaku(totalYoukaku);
     SaveSystem.markStageCleared(1);
 
-    const { width, height } = this.scale;
-    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6).setDepth(300);
-    this.add.text(width / 2, height / 2 - 80, 'STAGE CLEAR!', {
-      fontSize: '48px',
-      color: '#ffd700',
-    }).setOrigin(0.5).setDepth(301);
-    this.add.text(width / 2, height / 2, `獲得妖核：${this.youkakuThisRun + 50}`, {
-      fontSize: '28px',
-      color: '#cc88ff',
-    }).setOrigin(0.5).setDepth(301);
-
-    this.time.delayedCall(4000, () => {
+    this.time.delayedCall(800, () => {
       this.scene.stop('LevelUpScene');
-      this.scene.start('TitleScene');
+      this.scene.start('ResultScene', {
+        stage: 1,
+        youkakuEarned: totalYoukaku,
+        level: this.xpSystem.getLevel(),
+        elapsed: this.waveSystem.getElapsed(),
+      });
     });
   }
 

@@ -4,6 +4,7 @@ import { TitleScene } from './scenes/TitleScene';
 import { StageScene } from './scenes/StageScene';
 import { LevelUpScene } from './scenes/LevelUpScene';
 import { GameOverScene } from './scenes/GameOverScene';
+import { ResultScene } from './scenes/ResultScene';
 
 const GAME_WIDTH = 540;
 const GAME_HEIGHT = 960;
@@ -25,7 +26,7 @@ const config: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [BootScene, TitleScene, StageScene, LevelUpScene, GameOverScene],
+  scene: [BootScene, TitleScene, StageScene, LevelUpScene, GameOverScene, ResultScene],
 };
 
 new Phaser.Game(config);

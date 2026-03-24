@@ -22,6 +22,10 @@ export class Player {
   private lastFireTime: number = 0;
   private invincibleUntil: number = 0;
 
+  // タッチ / マウス操作
+  private pointerActive: boolean = false;
+  private pointerTargetX: number = 270;
+
   stats: PlayerStats;
   isAlive: boolean = true;
 
@@ -46,13 +50,13 @@ export class Player {
     };
 
     // スプライト（プログラム描画）
-    const body = scene.add.rectangle(0, 0, 28, 36, 0xddddff);
-    const head = scene.add.circle(0, -22, 12, 0xffeedd);
-    const sword = scene.add.rectangle(18, -5, 6, 28, 0x88aaff);
-    const ear1 = scene.add.triangle(0, -34, -8, 0, 8, 0, 0, -14, 0xddddff);
-    const ear2 = scene.add.triangle(0, -34, -8, 0, 8, 0, 0, -14, 0xddddff).setX(-2);
+    const bodyRect = scene.add.rectangle(0, 0, 28, 36, 0xddddff);
+    const head     = scene.add.circle(0, -22, 12, 0xffeedd);
+    const sword    = scene.add.rectangle(18, -5, 6, 28, 0x88aaff);
+    const ear1     = scene.add.triangle(-6, -32, -8, 0, 8, 0, 0, -14, 0xddddff);
+    const ear2     = scene.add.triangle( 6, -32, -8, 0, 8, 0, 0, -14, 0xddddff);
 
-    this.sprite = scene.add.container(270, 880, [ear1, ear2, body, head, sword]);
+    this.sprite = scene.add.container(270, 880, [ear1, ear2, bodyRect, head, sword]);
     this.sprite.setDepth(10);
 
     scene.physics.add.existing(this.sprite);
@@ -70,10 +74,24 @@ export class Player {
       };
     }
 
-    // HP バー（画面上部）
+    // タッチ / マウス操作（スマホ対応）
+    scene.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      this.pointerActive = true;
+      this.pointerTargetX = p.x;
+    });
+    scene.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (p.isDown) {
+        this.pointerTargetX = p.x;
+      }
+    });
+    scene.input.on('pointerup', () => {
+      this.pointerActive = false;
+    });
+
+    // HP バー（画面左上）
     this.hpBarBg = scene.add.rectangle(15, 20, 200, 16, 0x333333).setOrigin(0, 0.5).setDepth(100);
-    this.hpBar = scene.add.rectangle(15, 20, 200, 16, 0x44ff44).setOrigin(0, 0.5).setDepth(101);
-    this.hpText = scene.add.text(120, 20, 'HP 100/100', {
+    this.hpBar   = scene.add.rectangle(15, 20, 200, 16, 0x44ff44).setOrigin(0, 0.5).setDepth(101);
+    this.hpText  = scene.add.text(120, 20, 'HP 100/100', {
       fontSize: '13px',
       color: '#ffffff',
     }).setOrigin(0.5).setDepth(102);
@@ -82,14 +100,22 @@ export class Player {
   update(time: number): void {
     if (!this.isAlive) return;
 
-    // 左右移動のみ
-    const left = this.cursors.left.isDown || this.wasdKeys.A.isDown;
-    const right = this.cursors.right.isDown || this.wasdKeys.D.isDown;
+    const left  = this.cursors?.left.isDown  || this.wasdKeys?.A.isDown;
+    const right = this.cursors?.right.isDown || this.wasdKeys?.D.isDown;
 
     if (left) {
       this.body.setVelocityX(-this.stats.speed);
     } else if (right) {
       this.body.setVelocityX(this.stats.speed);
+    } else if (this.pointerActive) {
+      // タッチ：目標X座標へ向かって移動
+      const dx = this.pointerTargetX - this.sprite.x;
+      if (Math.abs(dx) > 6) {
+        this.body.setVelocityX(Math.sign(dx) * this.stats.speed);
+      } else {
+        this.body.setVelocityX(0);
+        this.pointerActive = false;
+      }
     } else {
       this.body.setVelocityX(0);
     }
@@ -118,10 +144,10 @@ export class Player {
 
   private firePlayerBullet(): void {
     const isCrit = Math.random() < this.stats.critChance;
-    const dmg = isCrit
+    const dmg    = isCrit
       ? Math.floor(this.stats.damage * this.stats.critMultiplier)
       : this.stats.damage;
-    const color = isCrit ? 0xffdd00 : 0x88ccff;
+    const color  = isCrit ? 0xffdd00 : 0x88ccff;
     const radius = isCrit ? 7 : 5;
 
     this.pool.fire(
