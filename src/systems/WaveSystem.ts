@@ -157,6 +157,144 @@ const STAGE1_SCHEDULE: Array<{ time: number; event: WaveEvent }> = [
     { key: 'blood_cherry', x: 200 }, { key: 'gate_guardian', x: 270, y: -60 },
     { key: 'blood_cherry', x: 340 },
   ]}},
+  { time: 370, event: { type: 'wave', enemies: [
+    { key: 'shadow_spider', x: -50, y: 300 }, { key: 'yaksha_eye', x: 270 },
+    { key: 'shadow_spider', x: 590, y: 400 },
+  ]}},
+  { time: 390, event: { type: 'wave', enemies: [
+    { key: 'fire_serpent', x: 120 }, { key: 'skull_lantern', x: 270 }, { key: 'fire_serpent', x: 420 },
+  ]}},
+
+  // ─── 600秒（10分）ミニボス② 双子の狐精 ───
+  { time: 600, event: { type: 'miniboss', id: 'miniboss2' }},
+
+  // ─── 600〜900秒 10〜15分帯ウェーブ ───
+  { time: 615, event: { type: 'wave', enemies: [
+    { key: 'blood_cherry', x: 100 }, { key: 'blood_cherry', x: 270 }, { key: 'blood_cherry', x: 440 },
+  ]}},
+  { time: 630, event: { type: 'wave', enemies: [
+    { key: 'shadow_spider', x: -50, y: 350 }, { key: 'gate_guardian', x: 270, y: -60 },
+    { key: 'shadow_spider', x: 590, y: 450 },
+  ]}},
+  { time: 660, event: { type: 'wave', enemies: [
+    { key: 'fire_serpent', x: 80  }, { key: 'yaksha_eye', x: 200 },
+    { key: 'yaksha_eye',   x: 340 }, { key: 'fire_serpent', x: 460 },
+  ]}},
+  { time: 690, event: { type: 'wave', enemies: [
+    { key: 'skull_lantern', x: 100 }, { key: 'skull_lantern', x: 270 }, { key: 'skull_lantern', x: 440 },
+    { key: 'foxfire', x: 160 }, { key: 'foxfire', x: 380 },
+  ]}},
+  { time: 720, event: { type: 'wave', enemies: [
+    { key: 'blood_cherry', x: 150 }, { key: 'gate_guardian', x: 270, y: -60 }, { key: 'blood_cherry', x: 390 },
+  ]}},
+  { time: 760, event: { type: 'wave', enemies: [
+    { key: 'shadow_spider', x: -50, y: 300 }, { key: 'dancing_doll', x: 150 },
+    { key: 'dancing_doll', x: 270 }, { key: 'dancing_doll', x: 390 },
+    { key: 'shadow_spider', x: 590, y: 400 },
+  ]}},
+  { time: 800, event: { type: 'wave', enemies: [
+    { key: 'fire_serpent', x: 100 }, { key: 'blood_cherry', x: 200 }, { key: 'gate_guardian', x: 270, y: -60 },
+    { key: 'blood_cherry', x: 340 }, { key: 'fire_serpent', x: 440 },
+  ]}},
+  { time: 850, event: { type: 'wave', enemies: [
+    { key: 'yaksha_eye', x: 20 }, { key: 'skull_lantern', x: 160 }, { key: 'skull_lantern', x: 380 },
+    { key: 'yaksha_eye', x: 520 },
+  ]}},
+
+  // ─── 900秒（15分）ミニボス③ 呪縛の般若 ───
+  { time: 900, event: { type: 'miniboss', id: 'miniboss3' }},
+
+  // ─── 900〜1200秒 15〜20分帯ウェーブ ───
+  { time: 920, event: { type: 'wave', enemies: [
+    { key: 'blood_cherry', x: 100 }, { key: 'shadow_spider', x: -50, y: 300 },
+    { key: 'blood_cherry', x: 440 }, { key: 'shadow_spider', x: 590, y: 400 },
+  ]}},
+  { time: 950, event: { type: 'wave', enemies: [
+    { key: 'gate_guardian', x: 270, y: -60 }, { key: 'fire_serpent', x: 100 },
+    { key: 'fire_serpent', x: 440 }, { key: 'yaksha_eye', x: 270 },
+  ]}},
+  { time: 990, event: { type: 'wave', enemies: [
+    { key: 'skull_lantern', x: 80 }, { key: 'skull_lantern', x: 200 }, { key: 'skull_lantern', x: 340 },
+    { key: 'skull_lantern', x: 460 }, { key: 'blood_cherry', x: 270 },
+  ]}},
+  { time: 1040, event: { type: 'wave', enemies: [
+    { key: 'shadow_spider', x: -50, y: 350 }, { key: 'gate_guardian', x: 160, y: -60 },
+    { key: 'gate_guardian', x: 380, y: -60 }, { key: 'shadow_spider', x: 590, y: 450 },
+  ]}},
+  { time: 1090, event: { type: 'wave', enemies: [
+    { key: 'fire_serpent', x: 80 }, { key: 'blood_cherry', x: 160 }, { key: 'yaksha_eye', x: 270 },
+    { key: 'blood_cherry', x: 380 }, { key: 'fire_serpent', x: 460 },
+  ]}},
+  { time: 1140, event: { type: 'wave', enemies: [
+    { key: 'shadow_spider', x: -50, y: 300 }, { key: 'skull_lantern', x: 160 },
+    { key: 'gate_guardian', x: 270, y: -60 }, { key: 'skull_lantern', x: 380 },
+    { key: 'shadow_spider', x: 590, y: 400 },
+  ]}},
+
+  // ─── 1200秒（20分）中ボス 冥府の狐女王 朱禍 ───
+  { time: 1200, event: { type: 'midboss', id: 'midboss' }},
+
+  // ─── 1200〜1500秒 20〜25分帯ウェーブ ───
+  { time: 1220, event: { type: 'wave', enemies: [
+    { key: 'blood_cherry', x: 100 }, { key: 'blood_cherry', x: 270 }, { key: 'blood_cherry', x: 440 },
+    { key: 'shadow_spider', x: -50, y: 350 },
+  ]}},
+  { time: 1260, event: { type: 'wave', enemies: [
+    { key: 'gate_guardian', x: 160, y: -60 }, { key: 'gate_guardian', x: 380, y: -60 },
+    { key: 'fire_serpent', x: 270 }, { key: 'yaksha_eye', x: 80 }, { key: 'yaksha_eye', x: 460 },
+  ]}},
+  { time: 1310, event: { type: 'wave', enemies: [
+    { key: 'shadow_spider', x: -50, y: 300 }, { key: 'blood_cherry', x: 160 },
+    { key: 'skull_lantern', x: 270 }, { key: 'blood_cherry', x: 380 },
+    { key: 'shadow_spider', x: 590, y: 400 },
+  ]}},
+  { time: 1370, event: { type: 'wave', enemies: [
+    { key: 'gate_guardian', x: 80,  y: -60 }, { key: 'gate_guardian', x: 270, y: -60 },
+    { key: 'gate_guardian', x: 460, y: -60 }, { key: 'fire_serpent', x: 160 },
+    { key: 'fire_serpent', x: 380 },
+  ]}},
+  { time: 1430, event: { type: 'wave', enemies: [
+    { key: 'shadow_spider', x: -50, y: 350 }, { key: 'blood_cherry', x: 100 },
+    { key: 'yaksha_eye', x: 200 }, { key: 'yaksha_eye', x: 340 }, { key: 'blood_cherry', x: 440 },
+    { key: 'shadow_spider', x: 590, y: 450 },
+  ]}},
+
+  // ─── 1500秒（25分）ミニボス④ 桜樹の怨念 ───
+  { time: 1500, event: { type: 'miniboss', id: 'miniboss4' }},
+
+  // ─── 1500〜1800秒 25〜30分帯ウェーブ（難度MAX）───
+  { time: 1520, event: { type: 'wave', enemies: [
+    { key: 'blood_cherry', x: 80 }, { key: 'gate_guardian', x: 160, y: -60 },
+    { key: 'shadow_spider', x: -50, y: 300 }, { key: 'blood_cherry', x: 380 },
+    { key: 'gate_guardian', x: 460, y: -60 },
+  ]}},
+  { time: 1560, event: { type: 'wave', enemies: [
+    { key: 'shadow_spider', x: 590, y: 350 }, { key: 'yaksha_eye', x: 80 },
+    { key: 'skull_lantern', x: 160 }, { key: 'skull_lantern', x: 270 }, { key: 'skull_lantern', x: 380 },
+    { key: 'yaksha_eye', x: 460 }, { key: 'shadow_spider', x: -50, y: 450 },
+  ]}},
+  { time: 1610, event: { type: 'wave', enemies: [
+    { key: 'gate_guardian', x: 160, y: -60 }, { key: 'gate_guardian', x: 380, y: -60 },
+    { key: 'fire_serpent', x: 80 }, { key: 'blood_cherry', x: 270 }, { key: 'fire_serpent', x: 460 },
+  ]}},
+  { time: 1660, event: { type: 'wave', enemies: [
+    { key: 'shadow_spider', x: -50, y: 300 }, { key: 'blood_cherry', x: 100 },
+    { key: 'gate_guardian', x: 270, y: -60 }, { key: 'blood_cherry', x: 440 },
+    { key: 'shadow_spider', x: 590, y: 400 },
+  ]}},
+  { time: 1720, event: { type: 'wave', enemies: [
+    { key: 'gate_guardian', x: 80,  y: -60 }, { key: 'yaksha_eye', x: 160 },
+    { key: 'shadow_spider', x: -50, y: 350 }, { key: 'yaksha_eye', x: 380 },
+    { key: 'gate_guardian', x: 460, y: -60 }, { key: 'shadow_spider', x: 590, y: 450 },
+  ]}},
+  { time: 1770, event: { type: 'wave', enemies: [
+    { key: 'blood_cherry', x: 80 }, { key: 'blood_cherry', x: 160 },
+    { key: 'blood_cherry', x: 270 }, { key: 'blood_cherry', x: 380 }, { key: 'blood_cherry', x: 460 },
+    { key: 'gate_guardian', x: 270, y: -60 },
+  ]}},
+
+  // ─── 1800秒（30分）ラスボス 九尾の大妖怪 夜叫 ───
+  { time: 1800, event: { type: 'boss', id: 'boss' }},
 ];
 
 export class WaveSystem {

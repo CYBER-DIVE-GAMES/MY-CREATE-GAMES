@@ -1,112 +1,113 @@
-import { PlayerStats } from '../entities/Player';
+import Phaser from 'phaser';
+import { PlayerStats, BASE_PLAYER_STATS } from '../entities/Player';
+import { SkillDef } from '../skills/SkillBase';
+import { ATTACK_SKILLS }  from '../skills/AttackSkills';
+import { DEFENSE_SKILLS } from '../skills/DefenseSkills';
+import { BULLET_SKILLS }  from '../skills/BulletSkills';
+import { UTILITY_SKILLS } from '../skills/UtilitySkills';
+import { GOLD_SKILLS }    from '../skills/GoldSkills';
+import { CURSE_SKILLS }   from '../skills/CurseSkills';
 
-export interface SkillDef {
-  id: string;
-  name: string;
-  category: 'A' | 'B' | 'C' | 'D' | 'G' | 'K';
-  color: number; // カードの色
-  maxLevel: number;
-  description: (level: number) => string;
-  apply: (stats: PlayerStats, level: number) => void;
-}
-
-// フェーズ1実装スキル（5種）
-export const SKILLS: SkillDef[] = [
-  {
-    id: 'A3_rapid_fire',
-    name: '急速連射',
-    category: 'A',
-    color: 0xff4444,
-    maxLevel: 3,
-    description: (lv) => ['攻撃速度 +30%', '攻撃速度 +60%', '攻撃速度 +100%'][lv - 1],
-    apply: (stats, lv) => {
-      const mult = [0.7, 0.625, 0.5][lv - 1];
-      stats.fireInterval = 500 * mult;
-    },
-  },
-  {
-    id: 'A9_crit_rate',
-    name: 'クリ率上昇',
-    category: 'A',
-    color: 0xff6622,
-    maxLevel: 3,
-    description: (lv) => [`クリ率 +10%（現在${lv * 10}%）`, `クリ率 +20%（現在${lv * 10}%）`, `クリ率 +35%（現在35%）`][lv - 1],
-    apply: (stats, lv) => {
-      stats.critChance = [0.10, 0.20, 0.35][lv - 1];
-    },
-  },
-  {
-    id: 'B1_hp_up',
-    name: 'HP増加',
-    category: 'B',
-    color: 0x4488ff,
-    maxLevel: 3,
-    description: (lv) => [`最大HP +20%`, `最大HP +40%`, `最大HP +70%`][lv - 1],
-    apply: (stats, lv) => {
-      const mult = [1.2, 1.4, 1.7][lv - 1];
-      stats.maxHp = Math.floor(100 * mult);
-      stats.hp = Math.min(stats.hp, stats.maxHp);
-    },
-  },
-  {
-    id: 'B2_regen',
-    name: '再生の流れ',
-    category: 'B',
-    color: 0x2266ff,
-    maxLevel: 3,
-    description: (lv) => [`HP 毎秒 1% 回復`, `HP 毎秒 2% 回復`, `HP 毎秒 4% 回復`][lv - 1],
-    apply: (_stats, _lv) => {
-      // StageScene 側で regenLevel を読んで処理
-    },
-  },
-  {
-    id: 'C9_bullet_speed',
-    name: '弾速上昇',
-    category: 'C',
-    color: 0xff8800,
-    maxLevel: 3,
-    description: (lv) => [`弾速 +20%`, `弾速 +40%`, `弾速 +70% + 貫通付与`][lv - 1],
-    apply: (stats, lv) => {
-      stats.bulletSpeed = [480, 560, 680][lv - 1];
-    },
-  },
+// 全スキルをフラットに結合
+export const ALL_SKILLS: SkillDef[] = [
+  ...ATTACK_SKILLS,
+  ...DEFENSE_SKILLS,
+  ...BULLET_SKILLS,
+  ...UTILITY_SKILLS,
+  ...GOLD_SKILLS,
+  ...CURSE_SKILLS,
 ];
 
+// LevelUpScene との互換性のために再エクスポート
+export type { SkillDef };
+
 export class SkillSystem {
-  // skillId → 現在レベル
   private acquired: Map<string, number> = new Map();
+  private luckyBellLevel: number = 0;
+  private currentLevel: number = 1; // レベル参照用（G1/G3の解放条件）
 
-  getAcquired(): Map<string, number> {
-    return this.acquired;
-  }
+  getAcquired(): Map<string, number> { return this.acquired; }
+  getSkillLevel(id: string): number  { return this.acquired.get(id) ?? 0; }
+  setCurrentLevel(lv: number): void  { this.currentLevel = lv; }
 
-  getSkillLevel(id: string): number {
-    return this.acquired.get(id) ?? 0;
-  }
-
-  /** 3枚ランダムに選ぶ（同じスキルでもLv上限以内なら再選択可能） */
+  /** スキルカードをランダムに選ぶ */
   drawCards(count: number = 3): SkillDef[] {
-    const available = SKILLS.filter((s) => {
+    const available = ALL_SKILLS.filter((s) => {
+      // レベル上限チェック
       const lv = this.getSkillLevel(s.id);
-      return lv < s.maxLevel;
+      if (lv >= s.maxLevel) return false;
+      // 解放条件チェック
+      if (s.isUnlocked && !s.isUnlocked(this.acquired)) return false;
+      // G1: Lv15以上
+      if (s.id === 'G1_bullet_prodigy' && this.currentLevel < 15) return false;
+      // G3: Lv20以上
+      if (s.id === 'G3_chaos_engine' && this.currentLevel < 20) return false;
+      return true;
     });
 
     if (available.length === 0) return [];
 
-    Phaser.Utils.Array.Shuffle(available);
-    return available.slice(0, Math.min(count, available.length));
+    // カーソを呪いスキル・ゴールドスキルの出現率調整
+    const weighted: SkillDef[] = [];
+    for (const s of available) {
+      const times = s.category === 'K' ? 1
+                  : s.category === 'G' ? (1 + this.luckyBellLevel)
+                  : 4;
+      for (let i = 0; i < times; i++) weighted.push(s);
+    }
+
+    Phaser.Utils.Array.Shuffle(weighted);
+    // 重複を除きつつ count 枚
+    const seen = new Set<string>();
+    const result: SkillDef[] = [];
+    for (const s of weighted) {
+      if (!seen.has(s.id)) {
+        seen.add(s.id);
+        result.push(s);
+      }
+      if (result.length >= count) break;
+    }
+    return result;
   }
 
-  /** スキルを取得してプレイヤーへ適用する */
+  /**
+   * スキルを取得し、全スキルを BaseStats から再計算して適用する。
+   * 現在のHPは保存して maxHp にクランプ。
+   */
   acquire(skillId: string, playerStats: PlayerStats): void {
-    const skill = SKILLS.find((s) => s.id === skillId);
+    const skill = ALL_SKILLS.find((s) => s.id === skillId);
     if (!skill) return;
-
     const currentLv = this.getSkillLevel(skillId);
     if (currentLv >= skill.maxLevel) return;
 
-    const newLv = currentLv + 1;
-    this.acquired.set(skillId, newLv);
-    skill.apply(playerStats, newLv);
+    this.acquired.set(skillId, currentLv + 1);
+
+    // D7 幸運の鈴レベルを更新
+    const d7lv = this.getSkillLevel('D7_lucky_bell');
+    this.luckyBellLevel = d7lv;
+
+    // 全スキルを再計算
+    this.recalculate(playerStats);
+  }
+
+  /**
+   * BASE_PLAYER_STATS を起点にして取得済みスキルを順番に apply し直す。
+   * HP は min(現在HP, 新maxHp) で保存。
+   */
+  recalculate(stats: PlayerStats): void {
+    const savedHp = stats.hp;
+    Object.assign(stats, { ...BASE_PLAYER_STATS });
+
+    for (const [id, lv] of this.acquired) {
+      const skill = ALL_SKILLS.find((s) => s.id === id);
+      if (skill) skill.apply(stats, lv);
+    }
+
+    stats.hp = Math.min(savedHp, stats.maxHp);
+  }
+
+  /** シナジー条件チェック（SynergyCalculatorから呼ばれる） */
+  hasBoth(idA: string, idB: string): boolean {
+    return this.acquired.has(idA) && this.acquired.has(idB);
   }
 }

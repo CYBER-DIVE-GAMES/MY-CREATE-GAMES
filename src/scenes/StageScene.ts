@@ -7,11 +7,13 @@ import { XPSystem } from '../systems/XPSystem';
 import { SkillSystem } from '../systems/SkillSystem';
 import { ObstacleSystem } from '../systems/ObstacleSystem';
 import { SaveSystem } from '../utils/SaveSystem';
+import { SynergyCalculator, ActiveSynergy } from '../utils/SynergyCalculator';
+import { STAGE1_BOSSES } from '../data/bosses/bossDefinitions';
 
 export class StageScene extends Phaser.Scene {
   private player!: Player;
-  private playerPool!: BulletPool;  // プレイヤーの弾
-  private enemyPool!: BulletPool;   // 敵の弾
+  private playerPool!: BulletPool;
+  private enemyPool!: BulletPool;
   private waveSystem!: WaveSystem;
   private xpSystem!: XPSystem;
   private skillSystem!: SkillSystem;
@@ -23,12 +25,25 @@ export class StageScene extends Phaser.Scene {
   private xpBar!: Phaser.GameObjects.Rectangle;
   private timerText!: Phaser.GameObjects.Text;
   private youkakuText!: Phaser.GameObjects.Text;
+  private synergyTexts: Phaser.GameObjects.Text[] = [];
 
   // ゲーム状態
   private paused: boolean = false;
   private regenTimer: number = 0;
   private youkakuThisRun: number = 0;
   private stageCleared: boolean = false;
+
+  // ランタイムスキルオブジェクト
+  private orbitalBullets: Phaser.GameObjects.Arc[] = [];
+  private orbitalAngle: number = 0;
+  private dischargeTimer: number = 0;
+  private homingTimer: number = 0;
+  private laserTimer: number = 0;
+  private laserCooldown: number = 5000;
+  private activeLaser: Phaser.GameObjects.Rectangle | null = null;
+
+  // XP ジェム
+  private xpGems: Phaser.GameObjects.Arc[] = [];
 
   constructor() {
     super({ key: 'StageScene' });
@@ -42,7 +57,6 @@ export class StageScene extends Phaser.Scene {
     bg.fillGradientStyle(0x050510, 0x050510, 0x0a0520, 0x0a0520, 1);
     bg.fillRect(0, 0, width, height);
 
-    // 星背景
     for (let i = 0; i < 60; i++) {
       const x = Phaser.Math.Between(0, width);
       const y = Phaser.Math.Between(0, height);
@@ -50,80 +64,54 @@ export class StageScene extends Phaser.Scene {
         Phaser.Math.FloatBetween(0.2, 0.6));
     }
 
-    // 弾プール（プレイヤー用・敵用 分離）
     this.playerPool = new BulletPool(this);
-    this.enemyPool = new BulletPool(this);
+    this.enemyPool  = new BulletPool(this);
 
-    // プレイヤー
     this.player = new Player(this, this.playerPool);
     this.player.sprite.setData('isPlayer', true);
 
-    // システム
-    this.skillSystem = new SkillSystem();
-    this.xpSystem = new XPSystem((level) => this.onLevelUp(level));
-    this.waveSystem = new WaveSystem(this, this.enemyPool, (id, type) => this.onBossSpawn(id, type));
+    this.skillSystem  = new SkillSystem();
+    this.xpSystem     = new XPSystem((level) => this.onLevelUp(level));
+    this.waveSystem   = new WaveSystem(this, this.enemyPool, (id, type) => this.onBossSpawn(id, type));
     this.obstacleSystem = new ObstacleSystem(this);
 
-    // HUD
     this.buildHUD();
   }
 
+  // ─── HUD ─────────────────────────────────────────────
   private buildHUD(): void {
     const { width } = this.scale;
-
-    // XP バー（画面上部）
     this.add.rectangle(0, 44, width, 10, 0x333333).setOrigin(0, 0.5).setDepth(100);
-    this.xpBar = this.add.rectangle(0, 44, 0, 10, 0x88ffaa).setOrigin(0, 0.5).setDepth(101);
-
-    this.levelText = this.add.text(width - 10, 20, 'Lv.1', {
-      fontSize: '18px',
-      color: '#88ffaa',
-    }).setOrigin(1, 0.5).setDepth(102);
-
-    this.timerText = this.add.text(width / 2, 20, '00:00', {
-      fontSize: '18px',
-      color: '#aaaaaa',
-    }).setOrigin(0.5).setDepth(102);
-
-    this.youkakuText = this.add.text(width - 10, this.scale.height - 10, '妖核 +0', {
-      fontSize: '16px',
-      color: '#cc88ff',
-    }).setOrigin(1, 1).setDepth(102);
+    this.xpBar     = this.add.rectangle(0, 44, 0, 10, 0x88ffaa).setOrigin(0, 0.5).setDepth(101);
+    this.levelText = this.add.text(width - 10, 20, 'Lv.1', { fontSize: '18px', color: '#88ffaa' })
+      .setOrigin(1, 0.5).setDepth(102);
+    this.timerText = this.add.text(width / 2, 20, '00:00', { fontSize: '18px', color: '#aaaaaa' })
+      .setOrigin(0.5).setDepth(102);
+    this.youkakuText = this.add.text(width - 10, this.scale.height - 10, '妖核 +0',
+      { fontSize: '16px', color: '#cc88ff' }).setOrigin(1, 1).setDepth(102);
   }
 
+  // ─── メインループ ─────────────────────────────────────
   update(time: number, delta: number): void {
     if (this.paused || this.stageCleared) return;
-    if (!this.player.isAlive) {
-      this.onGameOver();
-      return;
-    }
+    if (!this.player.isAlive) { this.onGameOver(); return; }
 
-    // プレイヤー更新
-    this.player.update(time);
-
-    // 弾プール掃除
+    this.player.update(time, delta);
     this.playerPool.update();
     this.enemyPool.update();
-
-    // ウェーブ更新
     this.waveSystem.update(delta);
-
-    // 障害物更新
     this.obstacleSystem.update(delta, this.waveSystem.getElapsed());
-
-    // ボス更新
     this.boss?.update(delta);
 
-    // HP再生
     this.handleRegen(delta);
-
-    // 当たり判定
+    this.handleRuntimeSkills(time, delta);
     this.handleCollisions(time);
-
-    // HUD 更新
+    this.handleXPMagnet();
     this.updateHUD();
+    this.updateSynergyHUD();
   }
 
+  // ─── HP再生 ──────────────────────────────────────────
   private handleRegen(delta: number): void {
     const regenLv = this.skillSystem.getSkillLevel('B2_regen');
     if (regenLv === 0) return;
@@ -135,42 +123,236 @@ export class StageScene extends Phaser.Scene {
     }
   }
 
+  // ─── ランタイムスキル処理 ──────────────────────────────
+  private handleRuntimeSkills(_time: number, delta: number): void {
+    const stats = this.player.stats;
+
+    // C3 オービタル
+    this.updateOrbitals(delta);
+
+    // C4 蓄積放電
+    if (stats.dischargeLevel > 0) {
+      this.dischargeTimer += delta;
+      const interval = 500;
+      if (this.dischargeTimer >= interval) {
+        this.dischargeTimer = 0;
+        this.doDischarge();
+      }
+    }
+
+    // C5 ホーミング
+    if (stats.homingLevel > 0) {
+      this.homingTimer += delta;
+      const interval = 3000;
+      if (this.homingTimer >= interval) {
+        this.homingTimer = 0;
+        this.fireHomingMissiles();
+      }
+    }
+
+    // C7 レーザー
+    if (stats.laserLevel > 0) {
+      this.laserCooldown = [5000, 4000, 3000][stats.laserLevel - 1];
+      this.laserTimer += delta;
+      if (this.laserTimer >= this.laserCooldown && !this.activeLaser) {
+        this.laserTimer = 0;
+        this.fireLaser();
+      }
+    }
+  }
+
+  private updateOrbitals(delta: number): void {
+    const count = this.player.stats.orbitalCount;
+
+    // 数が変わったら再生成
+    if (this.orbitalBullets.length !== count) {
+      this.orbitalBullets.forEach((b) => b.destroy());
+      this.orbitalBullets = [];
+      for (let i = 0; i < count; i++) {
+        const orb = this.add.circle(0, 0, 8, 0x66ffff).setDepth(9);
+        this.orbitalBullets.push(orb);
+      }
+    }
+
+    if (count === 0) return;
+
+    this.orbitalAngle += delta * 0.003;
+    const radius = 60;
+    const px = this.player.sprite.x;
+    const py = this.player.sprite.y;
+
+    this.orbitalBullets.forEach((orb, i) => {
+      const a = this.orbitalAngle + (i / count) * Math.PI * 2;
+      orb.setPosition(px + Math.cos(a) * radius, py + Math.sin(a) * radius);
+
+      // 敵との当たり判定
+      for (const enemy of this.waveSystem.enemies) {
+        if (!enemy.isAlive) continue;
+        const dist = Phaser.Math.Distance.Between(orb.x, orb.y, enemy.sprite.x, enemy.sprite.y);
+        if (dist < 8 + enemy.config.size) {
+          enemy.takeDamage(this.player.stats.damage * 0.5);
+          this.applyBulletEffects(enemy, this.player.stats);
+          if (!enemy.isAlive) this.onEnemyKilled(enemy.sprite.x, enemy.sprite.y, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
+        }
+      }
+    });
+  }
+
+  private doDischarge(): void {
+    const stats = this.player.stats;
+    const range = [80, 120, 160][stats.dischargeLevel - 1];
+    const dmg   = Math.floor(stats.damage * 0.6);
+    const px = this.player.sprite.x;
+    const py = this.player.sprite.y;
+    const maxChain = stats.dischargeLevel >= 3 ? 3 : 1;
+
+    let hit = 0;
+    for (const enemy of this.waveSystem.enemies) {
+      if (!enemy.isAlive || hit >= maxChain) continue;
+      const dist = Phaser.Math.Distance.Between(px, py, enemy.sprite.x, enemy.sprite.y);
+      if (dist < range) {
+        enemy.takeDamage(dmg);
+        hit++;
+        // 電撃ビジュアル
+        const line = this.add.graphics();
+        line.lineStyle(2, 0xffff44, 0.8);
+        line.strokeLineShape(new Phaser.Geom.Line(px, py, enemy.sprite.x, enemy.sprite.y));
+        this.time.delayedCall(150, () => line.destroy());
+        if (!enemy.isAlive) this.onEnemyKilled(enemy.sprite.x, enemy.sprite.y, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
+      }
+    }
+  }
+
+  private fireHomingMissiles(): void {
+    const stats = this.player.stats;
+    const count = [1, 2, 3][stats.homingLevel - 1];
+    const targets = [...this.waveSystem.enemies].filter((e) => e.isAlive).slice(0, count);
+
+    for (const target of targets) {
+      const sx = this.player.sprite.x;
+      const sy = this.player.sprite.y;
+      const angle = Math.atan2(target.sprite.y - sy, target.sprite.x - sx);
+      const spd   = 300;
+      this.playerPool.fire(this, sx, sy,
+        Math.cos(angle) * spd, Math.sin(angle) * spd,
+        Math.floor(stats.damage * 1.5), 'player', 0xff8800, 7);
+    }
+  }
+
+  private fireLaser(): void {
+    const stats = this.player.stats;
+    const width  = stats.laserLevel >= 3 ? 40 : 20;
+    const px = this.player.sprite.x;
+
+    const laser = this.add.rectangle(px, this.scale.height / 2, width, this.scale.height, 0x44ffff, 0.7);
+    laser.setDepth(8);
+    this.activeLaser = laser;
+
+    // レーザーダメージ
+    for (const enemy of this.waveSystem.enemies) {
+      if (!enemy.isAlive) continue;
+      if (Math.abs(enemy.sprite.x - px) < width / 2 + enemy.config.size) {
+        enemy.takeDamage(stats.damage * 8);
+        if (stats.iceLevel > 0) enemy.applyStatus('freeze', 1000, stats.iceLevel); // レーザー霜柱シナジー
+        if (!enemy.isAlive) this.onEnemyKilled(enemy.sprite.x, enemy.sprite.y, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
+      }
+    }
+    // ボスにもダメージ
+    if (this.boss?.isAlive && Math.abs(this.boss.sprite.x - px) < width / 2 + 45) {
+      this.boss.takeDamage(stats.damage * 8);
+    }
+
+    this.tweens.add({
+      targets: laser, alpha: 0, duration: 300,
+      onComplete: () => { laser.destroy(); this.activeLaser = null; },
+    });
+  }
+
+  // ─── XP磁石 ────────────────────────────────────────────
+  private handleXPMagnet(): void {
+    const magLv = this.player.stats.xpMagnetLevel;
+    if (magLv === 0 || this.xpGems.length === 0) return;
+    const range  = magLv >= 3 ? 9999 : [200, 400][magLv - 1];
+    const px = this.player.sprite.x, py = this.player.sprite.y;
+
+    this.xpGems = this.xpGems.filter((gem) => {
+      if (!gem.active) return false;
+      const dist = Phaser.Math.Distance.Between(px, py, gem.x, gem.y);
+      if (dist < range) {
+        this.xpSystem.addXP(gem.getData('xp') as number);
+        gem.destroy();
+        return false;
+      }
+      return true;
+    });
+  }
+
+  // ─── 当たり判定 ──────────────────────────────────────
   private handleCollisions(time: number): void {
-    const playerSprite = this.player.sprite;
+    const ps = this.player.sprite;
+    const stats = this.player.stats;
 
     // プレイヤー弾 vs 敵
     this.playerPool.physicsGroup.getChildren().forEach((b) => {
       const bullet = b as Phaser.GameObjects.Arc;
       if (!bullet.active) return;
+      let pierceCount = bullet.getData('pierceCount') as number ?? 0;
 
-      this.waveSystem.enemies.forEach((enemy) => {
-        if (!enemy.isAlive) return;
+      // 通常敵
+      for (const enemy of this.waveSystem.enemies) {
+        if (!enemy.isAlive) continue;
         const dist = Phaser.Math.Distance.Between(bullet.x, bullet.y, enemy.sprite.x, enemy.sprite.y);
-        if (dist < bullet.radius + enemy.config.size) {
+        if (dist < bullet.radius + enemy.config.size * stats.hitboxScale) {
           const dmg = bullet.getData('damage') as number;
           enemy.takeDamage(dmg);
+          this.applyBulletEffects(enemy, stats);
 
-          // XP・妖核ドロップ
-          if (!enemy.isAlive) {
-            this.xpSystem.addXP(enemy.config.xp);
-            this.dropYoukaku(enemy.sprite.x, enemy.sprite.y, enemy.config.youkakuDrop, enemy.config.youkakuChance);
+          // 吸血（B5）
+          if (stats.lifeStealRate > 0) {
+            this.player.heal(Math.ceil(dmg * stats.lifeStealRate));
+          }
+          // 経験値共鳴（D8）
+          if (stats.xpResonanceLevel > 0 && !enemy.isAlive) {
+            this.player.heal(Math.ceil(this.player.stats.maxHp * [0.001, 0.002, 0.003][stats.xpResonanceLevel - 1]));
           }
 
-          this.playerPool.killBullet(bullet);
-        }
-      });
+          if (!enemy.isAlive) {
+            this.onEnemyKilled(enemy.sprite.x, enemy.sprite.y, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
+          }
 
-      // ボスへのダメージ
-      if (this.boss?.isAlive) {
+          // 爆発（A2）
+          if (stats.explosionLevel > 0) {
+            this.doExplosion(bullet.x, bullet.y, stats);
+          }
+          // 分裂（A5）
+          if (stats.splitLevel > 0) {
+            this.doSplit(bullet.x, bullet.y, stats);
+          }
+
+          // 貫通（A1）
+          if (stats.piercing) {
+            pierceCount++;
+            bullet.setData('pierceCount', pierceCount);
+            if (pierceCount > stats.pierceLimit) {
+              this.playerPool.killBullet(bullet);
+            }
+          } else {
+            this.playerPool.killBullet(bullet);
+          }
+          if (!bullet.active) break;
+        }
+      }
+
+      // ボス
+      if (bullet.active && this.boss?.isAlive) {
         const dist = Phaser.Math.Distance.Between(bullet.x, bullet.y, this.boss.sprite.x, this.boss.sprite.y);
         if (dist < bullet.radius + 45) {
           const dmg = bullet.getData('damage') as number;
           this.boss.takeDamage(dmg);
+          if (stats.lifeStealRate > 0) this.player.heal(Math.ceil(dmg * stats.lifeStealRate));
+          if (stats.explosionLevel > 0) this.doExplosion(bullet.x, bullet.y, stats);
           this.playerPool.killBullet(bullet);
-
-          if (!this.boss.isAlive) {
-            this.onBossDefeated();
-          }
+          if (!this.boss.isAlive) this.onBossDefeated();
         }
       }
     });
@@ -179,54 +361,129 @@ export class StageScene extends Phaser.Scene {
     this.enemyPool.physicsGroup.getChildren().forEach((b) => {
       const bullet = b as Phaser.GameObjects.Arc;
       if (!bullet.active) return;
-      const dist = Phaser.Math.Distance.Between(bullet.x, bullet.y, playerSprite.x, playerSprite.y);
-      if (dist < bullet.radius + 10) {
+
+      // 磁力バリア（B9）
+      if (stats.barrierLevel > 0) {
+        const absorbChance = [0.1, 0.2, 0.3][stats.barrierLevel - 1];
+        if (Math.random() < absorbChance) {
+          this.enemyPool.killBullet(bullet);
+          if (stats.barrierLevel >= 3) this.player.heal(2);
+          return;
+        }
+      }
+
+      const dist = Phaser.Math.Distance.Between(bullet.x, bullet.y, ps.x, ps.y);
+      if (dist < bullet.radius + 10 * stats.hitboxScale) {
         const dmg = bullet.getData('damage') as number;
         this.player.takeDamage(dmg, time);
         this.enemyPool.killBullet(bullet);
-        // 被弾フラッシュ
         this.cameras.main.flash(100, 255, 0, 0, false);
       }
     });
 
-    // 敵とプレイヤーの接触
-    this.waveSystem.enemies.forEach((enemy) => {
-      if (!enemy.isAlive) return;
-      const dist = Phaser.Math.Distance.Between(enemy.sprite.x, enemy.sprite.y, playerSprite.x, playerSprite.y);
-      if (dist < enemy.config.size + 14) {
+    // 敵体当たり
+    for (const enemy of this.waveSystem.enemies) {
+      if (!enemy.isAlive) continue;
+      const dist = Phaser.Math.Distance.Between(enemy.sprite.x, enemy.sprite.y, ps.x, ps.y);
+      if (dist < enemy.config.size + 14 * stats.hitboxScale) {
         this.player.takeDamage(5, time);
         enemy.takeDamage(999);
       }
-    });
+    }
 
-    // 障害物とプレイヤーの接触（即死）
-    this.obstacleSystem.obstacles.forEach((obs) => {
-      if (!obs.active) return;
+    // 障害物即死
+    for (const obs of this.obstacleSystem.obstacles) {
+      if (!obs.active) continue;
       const bounds = obs.getBounds();
-      const px = playerSprite.x;
-      const py = playerSprite.y;
-      if (px > bounds.left - 10 && px < bounds.right + 10 &&
-          py > bounds.top - 10 && py < bounds.bottom + 10) {
+      if (ps.x > bounds.left - 10 && ps.x < bounds.right + 10 &&
+          ps.y > bounds.top  - 10 && ps.y < bounds.bottom + 10) {
         this.player.takeDamage(9999, time);
       }
-    });
+    }
+  }
+
+  // ─── 弾エフェクト適用 ─────────────────────────────────
+  private applyBulletEffects(enemy: import('../entities/Enemy').Enemy, stats: typeof this.player.stats): void {
+    if (stats.poisonLevel > 0) enemy.applyStatus('poison', 3000, stats.poisonLevel);
+    if (stats.burnLevel   > 0) enemy.applyStatus('burn',   2000, stats.burnLevel);
+    if (stats.iceLevel    > 0) {
+      if (stats.iceLevel >= 2) {
+        enemy.applyStatus('freeze', 1000, stats.iceLevel);
+      } else {
+        enemy.applyStatus('slow', 2000, stats.iceLevel);
+      }
+    }
+  }
+
+  private doExplosion(x: number, y: number, stats: typeof this.player.stats): void {
+    const radius = [50, 75, 90][stats.explosionLevel - 1];
+    const dmg    = Math.floor(stats.damage * 0.5);
+
+    const circle = this.add.circle(x, y, radius, 0xff6600, 0.4);
+    this.tweens.add({ targets: circle, alpha: 0, scale: 1.5, duration: 250, onComplete: () => circle.destroy() });
+
+    for (const enemy of this.waveSystem.enemies) {
+      if (!enemy.isAlive) continue;
+      if (Phaser.Math.Distance.Between(x, y, enemy.sprite.x, enemy.sprite.y) < radius + enemy.config.size) {
+        enemy.takeDamage(dmg);
+        if (!enemy.isAlive) this.onEnemyKilled(enemy.sprite.x, enemy.sprite.y, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
+      }
+    }
+  }
+
+  private doSplit(x: number, y: number, stats: typeof this.player.stats): void {
+    const count = stats.splitLevel >= 2 ? 8 : 4;
+    const dmg   = Math.floor(stats.damage * 0.3);
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      this.playerPool.fire(this, x, y,
+        Math.cos(angle) * 200, Math.sin(angle) * 200,
+        dmg, 'player', 0xaaccff, 4);
+    }
+  }
+
+  // ─── 敵撃破処理 ───────────────────────────────────────
+  private onEnemyKilled(x: number, y: number, xp: number, youkakuDrop: number, youkakuChance: number): void {
+    // XP ジェムを配置
+    const gem = this.add.circle(x, y, 6, 0x88ff88).setDepth(4);
+    gem.setData('xp', xp);
+    this.xpGems.push(gem);
+
+    // 磁石Lv3は即回収
+    if (this.player.stats.xpMagnetLevel >= 3) {
+      this.xpSystem.addXP(xp);
+      gem.destroy();
+      this.xpGems = this.xpGems.filter((g) => g.active);
+    } else {
+      // 近くに来たら拾う（通常）
+      this.tweens.add({
+        targets: gem, y: y - 20, alpha: 0.8, duration: 800,
+      });
+      this.time.delayedCall(5000, () => {
+        if (gem.active) { gem.destroy(); }
+        this.xpGems = this.xpGems.filter((g) => g.active);
+      });
+    }
+
+    // 妖核ドロップ
+    this.dropYoukaku(x, y, youkakuDrop, youkakuChance);
   }
 
   private dropYoukaku(x: number, y: number, amount: number, chance: number): void {
-    if (Math.random() > chance) return;
-    this.youkakuThisRun += amount;
-    // ドロップ演出
-    const gem = this.add.circle(x, y, 6, 0xcc88ff);
+    const stats = this.player.stats;
+    const finalAmount = Math.ceil(amount * (1 + stats.youkakuBonusRate));
+    if (Math.random() > chance * (1 + stats.youkakuBonusRate * 0.5)) return;
+    this.youkakuThisRun += finalAmount;
+
+    const gem = this.add.circle(x, y, 6, 0xcc88ff).setDepth(4);
     this.tweens.add({
-      targets: gem,
-      y: y - 30,
-      alpha: 0,
-      duration: 600,
+      targets: gem, y: y - 30, alpha: 0, duration: 600,
       onComplete: () => gem.destroy(),
     });
     this.youkakuText.setText(`妖核 +${this.youkakuThisRun}`);
   }
 
+  // ─── XP拾い（プレイヤー付近） ─────────────────────────
   private updateHUD(): void {
     const { width } = this.scale;
     const ratio = this.xpSystem.getXPRatio();
@@ -237,45 +494,65 @@ export class StageScene extends Phaser.Scene {
     const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
     const s = (elapsed % 60).toString().padStart(2, '0');
     this.timerText.setText(`${m}:${s}`);
+
+    // XP ジェムの近接回収
+    const range = this.player.stats.xpMagnetLevel >= 2 ? 150 : 60;
+    const px = this.player.sprite.x, py = this.player.sprite.y;
+    this.xpGems = this.xpGems.filter((gem) => {
+      if (!gem.active) return false;
+      if (Phaser.Math.Distance.Between(px, py, gem.x, gem.y) < range) {
+        this.xpSystem.addXP(gem.getData('xp') as number);
+        gem.destroy();
+        return false;
+      }
+      return true;
+    });
   }
 
+  private updateSynergyHUD(): void {
+    const synergies: ActiveSynergy[] = SynergyCalculator.getActive(this.skillSystem);
+    // シナジーテキストを再描画
+    this.synergyTexts.forEach((t) => t.destroy());
+    this.synergyTexts = [];
+    synergies.forEach((syn, i) => {
+      const t = this.add.text(10, 60 + i * 22, `⚡ ${syn.name}`,
+        { fontSize: '13px', color: '#' + syn.color.toString(16).padStart(6, '0') })
+        .setDepth(102).setAlpha(0.85);
+      this.synergyTexts.push(t);
+    });
+  }
+
+  // ─── レベルアップ ─────────────────────────────────────
   private onLevelUp(level: number): void {
-    // レベルアップ演出
+    this.skillSystem.setCurrentLevel(level);
+
+    // D3 ラッシュ
+    const rushLv = this.skillSystem.getSkillLevel('D3_rush');
+    if (rushLv > 0) {
+      const dur = [3000, 5000, 7000][rushLv - 1];
+      this.player.rushTimer = dur;
+    }
+
     const { width, height } = this.scale;
-    const flash = this.add.rectangle(width / 2, height / 2, width, height, 0xffffff, 0.3);
-    this.tweens.add({
-      targets: flash,
-      alpha: 0,
-      duration: 400,
-      onComplete: () => flash.destroy(),
-    });
+    const flash = this.add.rectangle(width / 2, height / 2, width, height, 0xffffff, 0.25).setDepth(200);
+    this.tweens.add({ targets: flash, alpha: 0, duration: 400, onComplete: () => flash.destroy() });
 
-    const lvText = this.add.text(width / 2, height / 2, `Level ${level}!`, {
-      fontSize: '48px',
-      color: '#ffd700',
-      stroke: '#ff8800',
-      strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(200);
-    this.tweens.add({
-      targets: lvText,
-      y: height / 2 - 60,
-      alpha: 0,
-      duration: 1000,
-      onComplete: () => lvText.destroy(),
-    });
+    const lvText = this.add.text(width / 2, height / 2, `Level ${level}!`,
+      { fontSize: '48px', color: '#ffd700', stroke: '#ff8800', strokeThickness: 4 })
+      .setOrigin(0.5).setDepth(201);
+    this.tweens.add({ targets: lvText, y: height / 2 - 60, alpha: 0, duration: 1000,
+      onComplete: () => lvText.destroy() });
 
-    // スキル選択画面へ
     this.paused = true;
     this.time.delayedCall(600, () => {
-      const cards = this.skillSystem.drawCards(3);
+      const choiceCount = this.player.stats.skillChoiceCount;
+      const cards = this.skillSystem.drawCards(choiceCount);
       if (cards.length > 0) {
         this.scene.launch('LevelUpScene', {
           cards,
           skillSystem: this.skillSystem,
           playerStats: this.player.stats,
-          onClose: () => {
-            this.paused = false;
-          },
+          onClose: () => { this.paused = false; },
         });
       } else {
         this.paused = false;
@@ -283,63 +560,50 @@ export class StageScene extends Phaser.Scene {
     });
   }
 
-  private onBossSpawn(_id: string, _type: 'miniboss' | 'midboss' | 'boss'): void {
-    // ミニボス1（骸の剣鬼・簡易版）をフェーズ1として実装
-    this.boss = new Boss(
-      this,
-      this.enemyPool,
-      '骸の剣鬼',
-      800,
-      [
-        { hpThreshold: 1.0, color: 0x887766, firePattern: 'spread5',  fireInterval: 2000, bulletSpeed: 200, moveSpeed: 80 },
-        { hpThreshold: 0.5, color: 0xff6644, firePattern: 'radial12', fireInterval: 1500, bulletSpeed: 230, moveSpeed: 120 },
-      ]
-    );
+  // ─── ボス出現 ────────────────────────────────────────
+  private onBossSpawn(id: string, type: 'miniboss' | 'midboss' | 'boss'): void {
+    const def = STAGE1_BOSSES[id];
+    if (!def) return;
 
-    // ボス登場テロップ
+    this.boss = new Boss(this, this.enemyPool, def.name, def.maxHp, def.phases);
+
     const { width, height } = this.scale;
-    const t = this.add.text(width / 2, height / 2 - 100, '-- 骸の剣鬼 --', {
-      fontSize: '36px',
-      color: '#ff8888',
-      stroke: '#880000',
-      strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(200);
-    this.tweens.add({
-      targets: t,
-      alpha: 0,
-      duration: 2000,
-      delay: 1000,
-      onComplete: () => t.destroy(),
-    });
+    const color = type === 'boss' ? '#ffdd00' : type === 'midboss' ? '#ff88aa' : '#ff8888';
+    const t = this.add.text(width / 2, height / 2 - 120, `-- ${def.name} --`,
+      { fontSize: '34px', color, stroke: '#440000', strokeThickness: 3 })
+      .setOrigin(0.5).setDepth(200);
+    this.tweens.add({ targets: t, alpha: 0, duration: 2000, delay: 1000, onComplete: () => t.destroy() });
   }
 
+  // ─── ボス撃破 ─────────────────────────────────────────
   private onBossDefeated(): void {
-    // ボス撃破 妖核大量ドロップ
-    const drop = 20;
-    this.youkakuThisRun += drop;
+    const bossName = this.boss?.getName?.() ?? '';
+    const def = Object.values(STAGE1_BOSSES).find((d) => d.name === bossName);
+    const xpReward  = def?.xpReward  ?? 500;
+    const ykReward  = def?.youkakuReward ?? 15;
+
+    this.xpSystem.addXP(xpReward);
+    this.youkakuThisRun += ykReward;
     this.youkakuText.setText(`妖核 +${this.youkakuThisRun}`);
 
     const { width, height } = this.scale;
-    const t = this.add.text(width / 2, height / 2, '撃破！', {
-      fontSize: '52px',
-      color: '#ffd700',
-      stroke: '#ff8800',
-      strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(200);
+    const t = this.add.text(width / 2, height / 2, '撃破！',
+      { fontSize: '52px', color: '#ffd700', stroke: '#ff8800', strokeThickness: 4 })
+      .setOrigin(0.5).setDepth(200);
     this.tweens.add({
-      targets: t,
-      y: height / 2 - 80,
-      alpha: 0,
-      duration: 1500,
+      targets: t, y: height / 2 - 80, alpha: 0, duration: 1500,
       onComplete: () => {
         t.destroy();
-        // フェーズ1ではボス1体撃破でステージクリア
-        this.onStageClear();
+        this.boss = null;
+        // ラスボス撃破ならクリア
+        if (this.waveSystem.getElapsed() >= 1799) {
+          this.onStageClear();
+        }
       },
     });
-    this.boss = null;
   }
 
+  // ─── ステージクリア ───────────────────────────────────
   private onStageClear(): void {
     this.stageCleared = true;
     const clearBonus = 50;
@@ -358,15 +622,20 @@ export class StageScene extends Phaser.Scene {
     });
   }
 
+  // ─── ゲームオーバー ──────────────────────────────────
   private onGameOver(): void {
     if (this.paused) return;
     this.paused = true;
+    this.orbitalBullets.forEach((b) => b.destroy());
+    this.orbitalBullets = [];
 
-    // 半分没収して保存
     const kept = Math.floor(this.youkakuThisRun * 0.5);
     SaveSystem.addYoukaku(kept);
 
     this.scene.stop('LevelUpScene');
-    this.scene.start('GameOverScene', { youkakuKept: kept, youkakuLost: this.youkakuThisRun - kept });
+    this.scene.start('GameOverScene', {
+      youkakuKept: kept,
+      youkakuLost: this.youkakuThisRun - kept,
+    });
   }
 }

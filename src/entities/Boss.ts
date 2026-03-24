@@ -22,11 +22,14 @@ export class Boss {
   maxHp: number;
   hp: number;
   isAlive: boolean = true;
+  private bossName: string;
   private currentPhase: number = 0;
   private phases: BossPhaseConfig[];
   private timeSinceFire: number = 0;
   private moveDir: number = 1;
   private moveTimer: number = 0;
+
+  getName(): string { return this.bossName; }
 
   constructor(
     scene: Phaser.Scene,
@@ -40,6 +43,7 @@ export class Boss {
     this.maxHp = maxHp;
     this.hp = maxHp;
     this.phases = phases;
+    this.bossName = name;
 
     // ボス本体（プログラム描画）
     const core = scene.add.circle(0, 0, 40, phases[0].color);
