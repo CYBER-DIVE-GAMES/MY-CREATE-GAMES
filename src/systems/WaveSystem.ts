@@ -165,6 +165,50 @@ const STAGE1_SCHEDULE: Array<{ time: number; event: WaveEvent }> = [
     { key: 'fire_serpent', x: 120 }, { key: 'skull_lantern', x: 270 }, { key: 'fire_serpent', x: 420 },
   ]}},
 
+  // ─── 400〜590秒 ウェーブ継続（間を埋める）───
+  { time: 405, event: { type: 'wave', enemies: [
+    { key: 'foxfire', x: 100 }, { key: 'foxfire', x: 200 },
+    { key: 'ghost_warrior', x: 300 }, { key: 'foxfire', x: 440 },
+  ]}},
+  { time: 420, event: { type: 'wave', enemies: [
+    { key: 'fire_serpent', x: 150 }, { key: 'dancing_doll', x: 270 }, { key: 'fire_serpent', x: 390 },
+  ]}},
+  { time: 438, event: { type: 'wave', enemies: [
+    { key: 'skull_lantern', x: 100 }, { key: 'yaksha_eye', x: 270 }, { key: 'skull_lantern', x: 440 },
+  ]}},
+  { time: 455, event: { type: 'wave', enemies: [
+    { key: 'cherry_spirit', x: 80  }, { key: 'cherry_spirit', x: 200 },
+    { key: 'blood_cherry', x: 330  }, { key: 'cherry_spirit', x: 460 },
+  ]}},
+  { time: 472, event: { type: 'wave', enemies: [
+    { key: 'shadow_spider', x: -50, y: 300 }, { key: 'gate_guardian', x: 270, y: -60 },
+    { key: 'shadow_spider', x: 590, y: 400 },
+  ]}},
+  { time: 490, event: { type: 'wave', enemies: [
+    { key: 'blood_cherry', x: 100 }, { key: 'fire_serpent', x: 270 }, { key: 'blood_cherry', x: 440 },
+  ]}},
+  { time: 508, event: { type: 'wave', enemies: [
+    { key: 'yaksha_eye', x: 80  }, { key: 'dancing_doll', x: 200 },
+    { key: 'dancing_doll', x: 340 }, { key: 'yaksha_eye', x: 460 },
+  ]}},
+  { time: 526, event: { type: 'wave', enemies: [
+    { key: 'skull_lantern', x: 130 }, { key: 'blood_cherry', x: 270 }, { key: 'skull_lantern', x: 410 },
+    { key: 'ghost_warrior', x: 80  }, { key: 'ghost_warrior', x: 460 },
+  ]}},
+  { time: 545, event: { type: 'wave', enemies: [
+    { key: 'shadow_spider', x: -50, y: 350 }, { key: 'fire_serpent', x: 160 },
+    { key: 'gate_guardian', x: 380, y: -60 }, { key: 'shadow_spider', x: 590, y: 450 },
+  ]}},
+  { time: 565, event: { type: 'wave', enemies: [
+    { key: 'blood_cherry', x: 80  }, { key: 'yaksha_eye', x: 200 },
+    { key: 'skull_lantern', x: 270 }, { key: 'yaksha_eye', x: 340 },
+    { key: 'blood_cherry', x: 460 },
+  ]}},
+  { time: 583, event: { type: 'wave', enemies: [
+    { key: 'gate_guardian', x: 150, y: -60 }, { key: 'fire_serpent', x: 270 },
+    { key: 'gate_guardian', x: 390, y: -60 },
+  ]}},
+
   // ─── 600秒（10分）ミニボス② 双子の狐精 ───
   { time: 600, event: { type: 'miniboss', id: 'miniboss2' }},
 
@@ -337,8 +381,14 @@ export class WaveSystem {
     }
   }
 
+  private getScaleFactor(): number {
+    // 5分ごとに35%強化、最大4倍
+    return Math.min(1.0 + (this.elapsed / 300) * 0.35, 4.0);
+  }
+
   private triggerEvent(event: WaveEvent): void {
     if (event.type === 'wave') {
+      const scale = this.getScaleFactor();
       for (const def of event.enemies) {
         const base = ENEMY_CONFIGS[def.key];
         const cfg: EnemyConfig = {
@@ -346,6 +396,9 @@ export class WaveSystem {
           ...(def.overrides ?? {}),
           x: def.x,
           y: def.y ?? -50,
+          hp: Math.floor(base.hp * scale),
+          speed: Math.floor(base.speed * Math.sqrt(scale)), // speedは緩やかに
+          bulletDamage: Math.floor(base.bulletDamage * scale),
         };
         const enemy = new Enemy(this.scene, cfg, this.pool);
         this.enemies.push(enemy);

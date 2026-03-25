@@ -40,8 +40,8 @@ export const DEFENSE_SKILLS: SkillDef[] = [
     id: 'B5_lifesteal',
     name: '吸血弾',
     category: 'B', color: 0x4488ff, maxLevel: 3,
-    description: (lv) => ['与ダメの 3% をHP回復', '5% 回復', '8%+過回復分をシールドへ'][lv - 1],
-    apply: (stats, lv) => { stats.lifeStealRate = [0.03, 0.05, 0.08][lv - 1]; },
+    description: (lv) => ['与ダメの 1% をHP回復', '2% 回復', '3%+過回復分をシールドへ'][lv - 1],
+    apply: (stats, lv) => { stats.lifeStealRate = [0.01, 0.02, 0.03][lv - 1]; },
   },
   {
     id: 'B6_small_hitbox',

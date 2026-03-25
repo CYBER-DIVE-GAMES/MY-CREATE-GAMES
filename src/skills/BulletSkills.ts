@@ -37,13 +37,6 @@ export const BULLET_SKILLS: SkillDef[] = [
     apply: (stats, lv) => { stats.homingLevel = lv; },
   },
   {
-    id: 'C6_reflect',
-    name: '反射弾',
-    category: 'C', color: 0xff8800, maxLevel: 3,
-    description: (lv) => ['壁/障害物に弾が1回反射', '2回', '3回+反射後ダメ+30%'][lv - 1],
-    apply: (stats, lv) => { stats.reflectCount = lv; },
-  },
-  {
     id: 'C7_laser',
     name: 'レーザーチャージ',
     category: 'C', color: 0xff8800, maxLevel: 3,

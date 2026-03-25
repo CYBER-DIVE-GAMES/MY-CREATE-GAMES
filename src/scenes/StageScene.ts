@@ -98,17 +98,17 @@ export class StageScene extends Phaser.Scene {
   // ─── HUD ─────────────────────────────────────────────
   private buildHUD(): void {
     const { width, height } = this.scale;
-    const BAR_W = width * 0.50;
+    const BAR_W = width * 0.40;
     const LEFT  = 10;
     const DEPTH = 100;
 
     // ── HUDパネル背景（グラデーション風） ──
     const panel = this.add.graphics().setDepth(DEPTH);
     panel.fillStyle(0x000000, 0.6);
-    panel.fillRect(0, 0, width, 68);
+    panel.fillRect(0, 0, width, 58);
     // 下線
     panel.lineStyle(1, 0x334466, 0.8);
-    panel.strokeRect(0, 0, width, 68);
+    panel.strokeRect(0, 0, width, 58);
 
     // ── HPラベル ──
     this.add.text(LEFT, 16, 'HP', {
