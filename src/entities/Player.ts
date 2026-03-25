@@ -96,10 +96,7 @@ export class Player {
   // ラッシュ
   rushTimer: number = 0;
 
-  // HP バー
-  private hpBarBg: Phaser.GameObjects.Rectangle;
-  private hpBar: Phaser.GameObjects.Rectangle;
-  private hpText: Phaser.GameObjects.Text;
+  // シールドバー（HUD側でHP管理するためシールドのみ残す）
   private shieldBar: Phaser.GameObjects.Rectangle;
 
   constructor(scene: Phaser.Scene, pool: BulletPool) {
@@ -142,13 +139,8 @@ export class Player {
     });
     scene.input.on('pointerup', () => { this.pointerActive = false; });
 
-    // HP バー
-    this.hpBarBg   = scene.add.rectangle(15, 20, 200, 16, 0x333333).setOrigin(0, 0.5).setDepth(100);
-    this.hpBar     = scene.add.rectangle(15, 20, 200, 16, 0x44ff44).setOrigin(0, 0.5).setDepth(101);
-    this.shieldBar = scene.add.rectangle(15, 20, 0,   16, 0x44ccff).setOrigin(0, 0.5).setDepth(102);
-    this.hpText    = scene.add.text(120, 20, 'HP 100/100', {
-      fontSize: '13px', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(103);
+    // シールドバー（HPバーに重ねて表示）
+    this.shieldBar = scene.add.rectangle(34, 18, 0, 14, 0x44ccff).setOrigin(0, 0.5).setDepth(103);
   }
 
   update(time: number, delta: number): void {
@@ -202,16 +194,10 @@ export class Player {
       this.deathPreventCooldown -= delta;
     }
 
-    // HP バー更新
-    const ratio = this.stats.hp / this.stats.maxHp;
-    this.hpBar.width = 200 * ratio;
-    const color = ratio > 0.5 ? 0x44ff44 : ratio > 0.25 ? 0xffaa00 : 0xff2222;
-    this.hpBar.setFillStyle(color);
-    this.hpText.setText(`HP ${this.stats.hp}/${this.stats.maxHp}`);
-
-    // シールドバー
+    // シールドバー（HUDのHPバーに重ねて表示）
+    const BAR_W = this.scene.scale.width * 0.45;
     const shieldMax = this.stats.maxHp * [0.05, 0.10, 0.20][Math.max(0, this.stats.shieldLevel - 1)];
-    this.shieldBar.width = shieldMax > 0 ? 200 * (this.shieldHp / shieldMax) : 0;
+    this.shieldBar.width = shieldMax > 0 ? BAR_W * (this.shieldHp / shieldMax) : 0;
 
     // 無敵点滅
     if (time < this.invincibleUntil) {
@@ -310,9 +296,6 @@ export class Player {
 
   destroy(): void {
     this.sprite.destroy();
-    this.hpBarBg.destroy();
-    this.hpBar.destroy();
     this.shieldBar.destroy();
-    this.hpText.destroy();
   }
 }

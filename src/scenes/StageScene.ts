@@ -84,52 +84,91 @@ export class StageScene extends Phaser.Scene {
   // ─── HUD ─────────────────────────────────────────────
   private buildHUD(): void {
     const { width, height } = this.scale;
-    const BAR_W = width * 0.45;
-    const LEFT  = 8;
+    const BAR_W = width * 0.50;
+    const LEFT  = 10;
     const DEPTH = 100;
 
-    // HUDパネル背景（半透明）
-    this.add.rectangle(0, 0, width, 72, 0x000000, 0.45)
-      .setOrigin(0, 0).setDepth(DEPTH);
+    // ── HUDパネル背景（グラデーション風） ──
+    const panel = this.add.graphics().setDepth(DEPTH);
+    panel.fillStyle(0x000000, 0.6);
+    panel.fillRect(0, 0, width, 68);
+    // 下線
+    panel.lineStyle(1, 0x334466, 0.8);
+    panel.strokeRect(0, 0, width, 68);
 
-    // ── HPバー ──
-    const HP_Y = 18;
-    this.add.text(LEFT, HP_Y, 'HP', { fontSize: '13px', color: '#ff6666' })
-      .setOrigin(0, 0.5).setDepth(DEPTH + 2);
-    this.add.rectangle(LEFT + 26, HP_Y, BAR_W, 14, 0x330000)
-      .setOrigin(0, 0.5).setDepth(DEPTH + 1);
-    this.hpBar = this.add.rectangle(LEFT + 26, HP_Y, BAR_W, 14, 0xdd2222)
-      .setOrigin(0, 0.5).setDepth(DEPTH + 2);
-    this.hpText = this.add.text(LEFT + 26 + BAR_W / 2, HP_Y, '100/100',
-      { fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 2 })
-      .setOrigin(0.5).setDepth(DEPTH + 3);
+    // ── HPラベル ──
+    this.add.text(LEFT, 16, 'HP', {
+      fontSize: '12px', color: '#ff8888', fontStyle: 'bold',
+    }).setOrigin(0, 0.5).setDepth(DEPTH + 2);
 
-    // ── XPバー ──
-    const XP_Y = 38;
-    this.add.text(LEFT, XP_Y, 'XP', { fontSize: '13px', color: '#66aaff' })
-      .setOrigin(0, 0.5).setDepth(DEPTH + 2);
-    this.add.rectangle(LEFT + 26, XP_Y, BAR_W, 10, 0x001133)
-      .setOrigin(0, 0.5).setDepth(DEPTH + 1);
-    this.xpBar = this.add.rectangle(LEFT + 26, XP_Y, 0, 10, 0x4488ff)
-      .setOrigin(0, 0.5).setDepth(DEPTH + 2);
-    this.xpLabel = this.add.text(LEFT, 54, 'Lv1 → 2: 0/100',
-      { fontSize: '11px', color: '#aaccff' })
+    // HPバー背景（角丸風）
+    const hpBg = this.add.graphics().setDepth(DEPTH + 1);
+    hpBg.fillStyle(0x1a0000, 1);
+    hpBg.fillRoundedRect(LEFT + 24, 9, BAR_W, 14, 4);
+    hpBg.lineStyle(1, 0x660000, 1);
+    hpBg.strokeRoundedRect(LEFT + 24, 9, BAR_W, 14, 4);
+
+    // HPバー本体（Rectangleで幅を動的変更）
+    this.hpBar = this.add.rectangle(LEFT + 24, 16, BAR_W, 12, 0xdd2222)
       .setOrigin(0, 0.5).setDepth(DEPTH + 2);
 
-    // ── レベル（中央） ──
-    this.levelText = this.add.text(width / 2, 24, 'Lv1',
-      { fontSize: '22px', color: '#ffffff', stroke: '#000000', strokeThickness: 3, fontStyle: 'bold' })
-      .setOrigin(0.5, 0.5).setDepth(DEPTH + 2);
+    this.hpText = this.add.text(LEFT + 24 + BAR_W / 2, 16, '100/100', {
+      fontSize: '11px', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(DEPTH + 3);
 
-    // ── タイマー（右上） ──
-    this.timerText = this.add.text(width - 8, 24, '00:00',
-      { fontSize: '20px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 })
-      .setOrigin(1, 0.5).setDepth(DEPTH + 2);
+    // ── XPラベル ──
+    this.add.text(LEFT, 36, 'XP', {
+      fontSize: '12px', color: '#88aaff', fontStyle: 'bold',
+    }).setOrigin(0, 0.5).setDepth(DEPTH + 2);
 
-    // ── 妖核カウンター（左下） ──
-    this.youkakuText = this.add.text(8, height - 8, '妖核: 0',
-      { fontSize: '14px', color: '#cc88ff', stroke: '#000000', strokeThickness: 2 })
-      .setOrigin(0, 1).setDepth(DEPTH + 2);
+    // XPバー背景
+    const xpBg = this.add.graphics().setDepth(DEPTH + 1);
+    xpBg.fillStyle(0x000b22, 1);
+    xpBg.fillRoundedRect(LEFT + 24, 30, BAR_W, 10, 3);
+    xpBg.lineStyle(1, 0x224488, 1);
+    xpBg.strokeRoundedRect(LEFT + 24, 30, BAR_W, 10, 3);
+
+    this.xpBar = this.add.rectangle(LEFT + 24, 35, 0, 8, 0x4488ff)
+      .setOrigin(0, 0.5).setDepth(DEPTH + 2);
+
+    this.xpLabel = this.add.text(LEFT, 52, 'Lv1 → 2: 0/100', {
+      fontSize: '11px', color: '#99bbff',
+    }).setOrigin(0, 0.5).setDepth(DEPTH + 2);
+
+    // ── レベル（中央・枠付き） ──
+    const lvBg = this.add.graphics().setDepth(DEPTH + 1);
+    lvBg.fillStyle(0x111133, 0.85);
+    lvBg.fillRoundedRect(width / 2 - 30, 6, 60, 30, 6);
+    lvBg.lineStyle(1, 0x4455aa, 1);
+    lvBg.strokeRoundedRect(width / 2 - 30, 6, 60, 30, 6);
+
+    this.levelText = this.add.text(width / 2, 21, 'Lv1', {
+      fontSize: '20px', color: '#ffffff',
+      stroke: '#000022', strokeThickness: 3, fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(DEPTH + 2);
+
+    // ── タイマー（右上・枠付き） ──
+    const timBg = this.add.graphics().setDepth(DEPTH + 1);
+    timBg.fillStyle(0x111111, 0.8);
+    timBg.fillRoundedRect(width - 76, 6, 70, 30, 6);
+    timBg.lineStyle(1, 0x445566, 1);
+    timBg.strokeRoundedRect(width - 76, 6, 70, 30, 6);
+
+    this.timerText = this.add.text(width - 41, 21, '00:00', {
+      fontSize: '18px', color: '#eeeeff',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(DEPTH + 2);
+
+    // ── 妖核カウンター（左下・半透明背景） ──
+    const ykBg = this.add.graphics().setDepth(DEPTH);
+    ykBg.fillStyle(0x110022, 0.7);
+    ykBg.fillRoundedRect(4, height - 28, 100, 22, 4);
+
+    this.youkakuText = this.add.text(12, height - 17, '妖核: 0', {
+      fontSize: '13px', color: '#cc88ff',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0, 0.5).setDepth(DEPTH + 2);
   }
 
   // ─── メインループ ─────────────────────────────────────
