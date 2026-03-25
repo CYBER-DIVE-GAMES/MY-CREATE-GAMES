@@ -27,7 +27,7 @@ export interface EnemyConfig {
 }
 
 export const ENEMY_CONFIGS: Record<string, Omit<EnemyConfig, 'x' | 'y'>> = {
-  foxfire:      { hp: 60,  speed: 120, xp: 5,   youkakuDrop: 1, youkakuChance: 0.2, color: 0x88aaff, size: 14, movePattern: 'wave',             firePattern: 'none',         fireInterval: 9999, bulletDamage: 0  },
+  foxfire:      { hp: 60,  speed: 120, xp: 5,   youkakuDrop: 1, youkakuChance: 0.2, color: 0x88aaff, size: 14, movePattern: 'straight',         firePattern: 'none',         fireInterval: 9999, bulletDamage: 0  },
   ghost_warrior:{ hp: 180, speed: 90,  xp: 15,  youkakuDrop: 1, youkakuChance: 0.4, color: 0xaaaadd, size: 18, movePattern: 'straight',          firePattern: 'forward3',     fireInterval: 2000, bulletDamage: 8  },
   cherry_spirit:{ hp: 80,  speed: 55,  xp: 10,  youkakuDrop: 1, youkakuChance: 0.3, color: 0xffbbcc, size: 16, movePattern: 'wave_slow',         firePattern: 'radial8',      fireInterval: 2500, bulletDamage: 6  },
   skull_lantern:{ hp: 200, speed: 45,  xp: 20,  youkakuDrop: 1, youkakuChance: 0.5, color: 0xffffaa, size: 20, movePattern: 'straight',          firePattern: 'fan5_alt',     fireInterval: 1800, bulletDamage: 7  },

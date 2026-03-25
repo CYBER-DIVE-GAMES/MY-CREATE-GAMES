@@ -55,6 +55,21 @@ export class StageScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.scale;
 
+    // リトライ時のリセット
+    this.paused = false;
+    this.stageCleared = false;
+    this.youkakuThisRun = 0;
+    this.regenTimer = 0;
+    this.orbitalAngle = 0;
+    this.dischargeTimer = 0;
+    this.homingTimer = 0;
+    this.laserTimer = 0;
+    this.laserCooldown = 5000;
+    this.activeLaser = null;
+    this.orbitalBullets = [];
+    this.xpGems = [];
+    this.synergyTexts = [];
+
     // 背景
     const bg = this.add.graphics();
     bg.fillGradientStyle(0x050510, 0x050510, 0x0a0520, 0x0a0520, 1);
@@ -180,7 +195,8 @@ export class StageScene extends Phaser.Scene {
     this.playerPool.update();
     this.enemyPool.update();
     this.waveSystem.update(delta);
-    this.obstacleSystem.update(delta, this.waveSystem.getElapsed());
+    // obstacleSystem は無効化中
+    // this.obstacleSystem.update(delta, this.waveSystem.getElapsed());
     this.boss?.update(delta);
 
     this.handleRegen(delta);
@@ -535,11 +551,14 @@ export class StageScene extends Phaser.Scene {
       gem.destroy();
       this.xpGems = this.xpGems.filter((g) => g.active);
     } else {
-      // 近くに来たら拾う（通常）
+      // 画面下方向に落下させる（プレイヤーが拾いやすいよう）
       this.tweens.add({
-        targets: gem, y: y - 20, alpha: 0.8, duration: 800,
+        targets: gem,
+        y: this.scale.height - 120,
+        duration: 2000,
+        ease: 'Cubic.easeIn',
       });
-      this.time.delayedCall(5000, () => {
+      this.time.delayedCall(8000, () => {
         if (gem.active) { gem.destroy(); }
         this.xpGems = this.xpGems.filter((g) => g.active);
       });
