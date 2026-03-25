@@ -51,7 +51,7 @@ export interface PlayerStats {
 
 export const BASE_PLAYER_STATS: PlayerStats = {
   hp: 100, maxHp: 100, speed: 200, damage: 10,
-  fireInterval: 500, bulletSpeed: 400,
+  fireInterval: 300, bulletSpeed: 400,
   critChance: 0.05, critMultiplier: 2.0,
   piercing: false, pierceLimit: 0,
   explosionLevel: 0, splitLevel: 0,

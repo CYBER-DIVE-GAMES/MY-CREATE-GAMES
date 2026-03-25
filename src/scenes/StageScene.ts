@@ -24,7 +24,6 @@ export class StageScene extends Phaser.Scene {
   private hpBar!: Phaser.GameObjects.Rectangle;
   private hpText!: Phaser.GameObjects.Text;
   private xpBar!: Phaser.GameObjects.Rectangle;
-  private xpLabel!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
   private timerText!: Phaser.GameObjects.Text;
   private youkakuText!: Phaser.GameObjects.Text;
@@ -146,10 +145,6 @@ export class StageScene extends Phaser.Scene {
 
     this.xpBar = this.add.rectangle(LEFT + 24, 35, 0, 8, 0x4488ff)
       .setOrigin(0, 0.5).setDepth(DEPTH + 2);
-
-    this.xpLabel = this.add.text(LEFT, 52, 'Lv1 → 2: 0/100', {
-      fontSize: '11px', color: '#99bbff',
-    }).setOrigin(0, 0.5).setDepth(DEPTH + 2);
 
     // ── レベル（中央・枠付き） ──
     const lvBg = this.add.graphics().setDepth(DEPTH + 1);
@@ -551,12 +546,12 @@ export class StageScene extends Phaser.Scene {
       gem.destroy();
       this.xpGems = this.xpGems.filter((g) => g.active);
     } else {
-      // 画面下方向に落下させる（プレイヤーが拾いやすいよう）
+      // 真っ直ぐ下に落下
       this.tweens.add({
         targets: gem,
-        y: this.scale.height - 120,
-        duration: 2000,
-        ease: 'Cubic.easeIn',
+        y: this.scale.height - 100,
+        duration: 1800,
+        ease: 'Linear',
       });
       this.time.delayedCall(8000, () => {
         if (gem.active) { gem.destroy(); }
@@ -601,9 +596,6 @@ export class StageScene extends Phaser.Scene {
     this.xpBar.width = BAR_W * xpRatio;
 
     const lv = this.xpSystem.getLevel();
-    const xpNow = this.xpSystem.getXP();
-    const xpNeeded = this.xpSystem.getXPNeeded();
-    this.xpLabel.setText(`Lv${lv} → ${lv + 1}: ${xpNow}/${xpNeeded}`);
     this.levelText.setText(`Lv${lv}`);
 
     const elapsed = Math.floor(this.waveSystem.getElapsed());
