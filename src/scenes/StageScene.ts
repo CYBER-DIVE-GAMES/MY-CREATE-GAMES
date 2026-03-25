@@ -21,8 +21,11 @@ export class StageScene extends Phaser.Scene {
   private boss: Boss | null = null;
 
   // HUD
-  private levelText!: Phaser.GameObjects.Text;
+  private hpBar!: Phaser.GameObjects.Rectangle;
+  private hpText!: Phaser.GameObjects.Text;
   private xpBar!: Phaser.GameObjects.Rectangle;
+  private xpLabel!: Phaser.GameObjects.Text;
+  private levelText!: Phaser.GameObjects.Text;
   private timerText!: Phaser.GameObjects.Text;
   private youkakuText!: Phaser.GameObjects.Text;
   private synergyTexts: Phaser.GameObjects.Text[] = [];
@@ -80,15 +83,53 @@ export class StageScene extends Phaser.Scene {
 
   // ─── HUD ─────────────────────────────────────────────
   private buildHUD(): void {
-    const { width } = this.scale;
-    this.add.rectangle(0, 44, width, 10, 0x333333).setOrigin(0, 0.5).setDepth(100);
-    this.xpBar     = this.add.rectangle(0, 44, 0, 10, 0x88ffaa).setOrigin(0, 0.5).setDepth(101);
-    this.levelText = this.add.text(width - 10, 20, 'Lv.1', { fontSize: '18px', color: '#88ffaa' })
-      .setOrigin(1, 0.5).setDepth(102);
-    this.timerText = this.add.text(width / 2, 20, '00:00', { fontSize: '18px', color: '#aaaaaa' })
-      .setOrigin(0.5).setDepth(102);
-    this.youkakuText = this.add.text(width - 10, this.scale.height - 10, '妖核 +0',
-      { fontSize: '16px', color: '#cc88ff' }).setOrigin(1, 1).setDepth(102);
+    const { width, height } = this.scale;
+    const BAR_W = width * 0.45;
+    const LEFT  = 8;
+    const DEPTH = 100;
+
+    // HUDパネル背景（半透明）
+    this.add.rectangle(0, 0, width, 72, 0x000000, 0.45)
+      .setOrigin(0, 0).setDepth(DEPTH);
+
+    // ── HPバー ──
+    const HP_Y = 18;
+    this.add.text(LEFT, HP_Y, 'HP', { fontSize: '13px', color: '#ff6666' })
+      .setOrigin(0, 0.5).setDepth(DEPTH + 2);
+    this.add.rectangle(LEFT + 26, HP_Y, BAR_W, 14, 0x330000)
+      .setOrigin(0, 0.5).setDepth(DEPTH + 1);
+    this.hpBar = this.add.rectangle(LEFT + 26, HP_Y, BAR_W, 14, 0xdd2222)
+      .setOrigin(0, 0.5).setDepth(DEPTH + 2);
+    this.hpText = this.add.text(LEFT + 26 + BAR_W / 2, HP_Y, '100/100',
+      { fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 2 })
+      .setOrigin(0.5).setDepth(DEPTH + 3);
+
+    // ── XPバー ──
+    const XP_Y = 38;
+    this.add.text(LEFT, XP_Y, 'XP', { fontSize: '13px', color: '#66aaff' })
+      .setOrigin(0, 0.5).setDepth(DEPTH + 2);
+    this.add.rectangle(LEFT + 26, XP_Y, BAR_W, 10, 0x001133)
+      .setOrigin(0, 0.5).setDepth(DEPTH + 1);
+    this.xpBar = this.add.rectangle(LEFT + 26, XP_Y, 0, 10, 0x4488ff)
+      .setOrigin(0, 0.5).setDepth(DEPTH + 2);
+    this.xpLabel = this.add.text(LEFT, 54, 'Lv1 → 2: 0/100',
+      { fontSize: '11px', color: '#aaccff' })
+      .setOrigin(0, 0.5).setDepth(DEPTH + 2);
+
+    // ── レベル（中央） ──
+    this.levelText = this.add.text(width / 2, 24, 'Lv1',
+      { fontSize: '22px', color: '#ffffff', stroke: '#000000', strokeThickness: 3, fontStyle: 'bold' })
+      .setOrigin(0.5, 0.5).setDepth(DEPTH + 2);
+
+    // ── タイマー（右上） ──
+    this.timerText = this.add.text(width - 8, 24, '00:00',
+      { fontSize: '20px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 })
+      .setOrigin(1, 0.5).setDepth(DEPTH + 2);
+
+    // ── 妖核カウンター（左下） ──
+    this.youkakuText = this.add.text(8, height - 8, '妖核: 0',
+      { fontSize: '14px', color: '#cc88ff', stroke: '#000000', strokeThickness: 2 })
+      .setOrigin(0, 1).setDepth(DEPTH + 2);
   }
 
   // ─── メインループ ─────────────────────────────────────
@@ -480,15 +521,32 @@ export class StageScene extends Phaser.Scene {
       targets: gem, y: y - 30, alpha: 0, duration: 600,
       onComplete: () => gem.destroy(),
     });
-    this.youkakuText.setText(`妖核 +${this.youkakuThisRun}`);
+    this.youkakuText.setText(`妖核: ${this.youkakuThisRun}`);
   }
 
   // ─── XP拾い（プレイヤー付近） ─────────────────────────
   private updateHUD(): void {
-    const { width } = this.scale;
-    const ratio = this.xpSystem.getXPRatio();
-    this.xpBar.width = width * ratio;
-    this.levelText.setText(`Lv.${this.xpSystem.getLevel()}`);
+    const BAR_W = this.scale.width * 0.45;
+    const stats = this.player.stats;
+
+    // HP バー
+    const hpRatio = Math.max(0, stats.hp / stats.maxHp);
+    this.hpBar.width = BAR_W * hpRatio;
+    this.hpText.setText(`${stats.hp}/${stats.maxHp}`);
+
+    // HP バーの色（残量で変化）
+    const hpColor = hpRatio > 0.5 ? 0xdd2222 : hpRatio > 0.25 ? 0xee6600 : 0xff2200;
+    this.hpBar.setFillStyle(hpColor);
+
+    // XP バー
+    const xpRatio = this.xpSystem.getXPRatio();
+    this.xpBar.width = BAR_W * xpRatio;
+
+    const lv = this.xpSystem.getLevel();
+    const xpNow = this.xpSystem.getXP();
+    const xpNeeded = this.xpSystem.getXPNeeded();
+    this.xpLabel.setText(`Lv${lv} → ${lv + 1}: ${xpNow}/${xpNeeded}`);
+    this.levelText.setText(`Lv${lv}`);
 
     const elapsed = Math.floor(this.waveSystem.getElapsed());
     const m = Math.floor(elapsed / 60).toString().padStart(2, '0');
@@ -584,7 +642,7 @@ export class StageScene extends Phaser.Scene {
 
     this.xpSystem.addXP(xpReward);
     this.youkakuThisRun += ykReward;
-    this.youkakuText.setText(`妖核 +${this.youkakuThisRun}`);
+    this.youkakuText.setText(`妖核: ${this.youkakuThisRun}`);
 
     const { width, height } = this.scale;
     const t = this.add.text(width / 2, height / 2, '撃破！',

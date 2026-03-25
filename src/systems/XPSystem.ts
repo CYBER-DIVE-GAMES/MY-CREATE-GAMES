@@ -48,6 +48,7 @@ export class XPSystem {
 
   getLevel(): number { return this.level; }
   getXP(): number { return this.xp; }
+  getXPNeeded(): number { return this.xpForNext(); }
 
   getXPRatio(): number {
     const needed = this.xpForNext();
