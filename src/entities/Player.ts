@@ -225,7 +225,7 @@ export class Player {
     }
 
     // シールドバー（HUDのHPバーに重ねて表示）
-    const BAR_W = this.scene.scale.width * 0.45;
+    const BAR_W = this.scene.scale.width * 0.35;
     const shieldMax = this.stats.maxHp * [0.05, 0.10, 0.20][Math.max(0, this.stats.shieldLevel - 1)];
     this.shieldBar.width = shieldMax > 0 ? BAR_W * (this.shieldHp / shieldMax) : 0;
 

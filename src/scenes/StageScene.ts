@@ -579,7 +579,7 @@ export class StageScene extends Phaser.Scene {
 
   // ─── XP拾い（プレイヤー付近） ─────────────────────────
   private updateHUD(): void {
-    const BAR_W = this.scale.width * 0.45;
+    const BAR_W = this.scale.width * 0.35;
     const stats = this.player.stats;
 
     // HP バー

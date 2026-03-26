@@ -392,15 +392,10 @@ export class WaveSystem {
       const W = this.scene.scale.width;
       for (const def of event.enemies) {
         const base = ENEMY_CONFIGS[def.key];
-        // 画面外（横）から入る敵はx固定、上から落ちる敵はランダムx
-        const isTopSpawn = def.x >= 0 && def.x <= W;
-        const spawnX = isTopSpawn
-          ? Phaser.Math.Between(40, W - 40)
-          : def.x;
         const cfg: EnemyConfig = {
           ...base,
           ...(def.overrides ?? {}),
-          x: spawnX,
+          x: def.x,
           y: def.y ?? -50,
           hp: Math.floor(base.hp * scale),
           speed: Math.floor(base.speed * Math.sqrt(scale)),
