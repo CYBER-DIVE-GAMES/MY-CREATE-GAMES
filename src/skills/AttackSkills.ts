@@ -66,18 +66,4 @@ export const ATTACK_SKILLS: SkillDef[] = [
     description: (lv) => ['命中時に減速 50%', '凍結 1秒停止', '凍結後の攻撃ダメ +50%'][lv - 1],
     apply: (stats, lv) => { stats.iceLevel = lv; },
   },
-  {
-    id: 'A9_crit_rate',
-    name: 'クリ率上昇',
-    category: 'A', color: 0xff6622, maxLevel: 3,
-    description: (lv) => [`クリ率 +10%（計${lv * 10}%）`, `クリ率 +20%（計${lv * 10}%）`, 'クリ率 +35%'][lv - 1],
-    apply: (stats, lv) => { stats.critChance = [0.10, 0.20, 0.35][lv - 1]; },
-  },
-  {
-    id: 'A10_crit_dmg',
-    name: 'クリダメ強化',
-    category: 'A', color: 0xff6622, maxLevel: 3,
-    description: (lv) => ['クリダメ +50%', 'クリダメ +100%', 'クリダメ +200%'][lv - 1],
-    apply: (stats, lv) => { stats.critMultiplier = [2.5, 3.0, 4.0][lv - 1]; },
-  },
 ];

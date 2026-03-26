@@ -9,13 +9,6 @@ export const BULLET_SKILLS: SkillDef[] = [
     apply: (stats, lv) => { stats.sideGunCount = lv; },
   },
   {
-    id: 'C2_rear_gun',
-    name: '後方砲撃',
-    category: 'C', color: 0xff8800, maxLevel: 3,
-    description: (lv) => ['真後ろに弾を発射', '斜め後ろ2本追加', '後方弾が自動追尾'][lv - 1],
-    apply: (stats, _lv) => { stats.hasRearGun = true; },
-  },
-  {
     id: 'C3_orbital',
     name: 'オービタル',
     category: 'C', color: 0xff8800, maxLevel: 3,

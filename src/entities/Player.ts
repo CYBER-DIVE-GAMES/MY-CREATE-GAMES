@@ -78,10 +78,15 @@ export class Player {
   private lastFireTime: number = 0;
   private invincibleUntil: number = 0;
 
-  // タッチ / マウス操作（スマホ: 左半分→左移動、右半分→右移動）
-  private touchMoveDir: number = 0;
-  private leftBtn!: Phaser.GameObjects.Text;
-  private rightBtn!: Phaser.GameObjects.Text;
+  // バーチャルジョイスティック（タッチデバイスのみ）
+  private joystickBase?: Phaser.GameObjects.Arc;
+  private joystickRing?: Phaser.GameObjects.Graphics;
+  private joystickKnob?: Phaser.GameObjects.Arc;
+  private joystickActive: boolean = false;
+  private joystickBaseX: number = 0;
+  private joystickBaseY: number = 0;
+  private joystickDx: number = 0;
+  private readonly JOYSTICK_R: number = 52;
 
   stats: PlayerStats;
   isAlive: boolean = true;
@@ -130,37 +135,47 @@ export class Player {
       };
     }
 
-    // タッチボタン（左右の視覚ガイド）
-    const { width, height } = scene.scale;
-    this.leftBtn = scene.add.text(48, height - 56, '◀', {
-      fontSize: '38px', color: '#ffffff',
-    }).setOrigin(0.5).setAlpha(0.25).setDepth(200);
-    this.rightBtn = scene.add.text(width - 48, height - 56, '▶', {
-      fontSize: '38px', color: '#ffffff',
-    }).setOrigin(0.5).setAlpha(0.25).setDepth(200);
+    // バーチャルジョイスティック（タッチデバイスのみ表示）
+    const isTouchDevice = scene.sys.game.device.input.touch;
+    if (isTouchDevice) {
+      this.joystickBase = scene.add.circle(0, 0, this.JOYSTICK_R, 0xffffff, 0.08)
+        .setDepth(200).setVisible(false);
+      this.joystickRing = scene.add.graphics().setDepth(200);
+      this.joystickKnob = scene.add.circle(0, 0, 24, 0xffffff, 0.55)
+        .setDepth(201).setVisible(false);
 
-    // タッチ / マウス操作（左半分→左、右半分→右）
-    const getDir = (x: number) => x < width / 2 ? -1 : 1;
-    scene.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      if (p.y < 70) return; // HUD領域は無視
-      this.touchMoveDir = getDir(p.x);
-      (this.touchMoveDir < 0 ? this.leftBtn : this.rightBtn).setAlpha(0.75);
-    });
-    scene.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (!p.isDown || p.y < 70) return;
-      const newDir = getDir(p.x);
-      if (newDir !== this.touchMoveDir) {
-        this.leftBtn.setAlpha(0.25);
-        this.rightBtn.setAlpha(0.25);
-        this.touchMoveDir = newDir;
-        (this.touchMoveDir < 0 ? this.leftBtn : this.rightBtn).setAlpha(0.75);
-      }
-    });
-    scene.input.on('pointerup', () => {
-      this.touchMoveDir = 0;
-      this.leftBtn.setAlpha(0.25);
-      this.rightBtn.setAlpha(0.25);
-    });
+      scene.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+        if (p.y < 70) return;
+        this.joystickBaseX = p.x;
+        this.joystickBaseY = p.y;
+        this.joystickBase!.setPosition(p.x, p.y).setVisible(true);
+        this.joystickKnob!.setPosition(p.x, p.y).setVisible(true);
+        this.joystickRing!.clear();
+        this.joystickRing!.lineStyle(2, 0xffffff, 0.35);
+        this.joystickRing!.strokeCircle(p.x, p.y, this.JOYSTICK_R);
+        this.joystickActive = true;
+      });
+      scene.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+        if (!this.joystickActive || !p.isDown) return;
+        const dx = p.x - this.joystickBaseX;
+        const dy = p.y - this.joystickBaseY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const clamped = Math.min(dist, this.JOYSTICK_R);
+        const angle = Math.atan2(dy, dx);
+        this.joystickKnob!.setPosition(
+          this.joystickBaseX + Math.cos(angle) * clamped,
+          this.joystickBaseY + Math.sin(angle) * clamped,
+        );
+        this.joystickDx = dist > 8 ? dx / Math.max(dist, 1) : 0;
+      });
+      scene.input.on('pointerup', () => {
+        this.joystickActive = false;
+        this.joystickDx = 0;
+        this.joystickBase!.setVisible(false);
+        this.joystickKnob!.setVisible(false);
+        this.joystickRing!.clear();
+      });
+    }
 
     // シールドバー（HPバーに重ねて表示）
     this.shieldBar = scene.add.rectangle(34, 18, 0, 14, 0x44ccff).setOrigin(0, 0.5).setDepth(103);
@@ -170,8 +185,8 @@ export class Player {
     if (!this.isAlive) return;
 
     // 移動
-    const left  = this.cursors?.left.isDown  || this.wasdKeys?.A.isDown || this.touchMoveDir < 0;
-    const right = this.cursors?.right.isDown || this.wasdKeys?.D.isDown || this.touchMoveDir > 0;
+    const left  = this.cursors?.left.isDown  || this.wasdKeys?.A.isDown || this.joystickDx < -0.3;
+    const right = this.cursors?.right.isDown || this.wasdKeys?.D.isDown || this.joystickDx > 0.3;
     if (left) {
       this.body.setVelocityX(-this.stats.speed);
     } else if (right) {
@@ -312,7 +327,8 @@ export class Player {
   destroy(): void {
     this.sprite.destroy();
     this.shieldBar.destroy();
-    this.leftBtn?.destroy();
-    this.rightBtn?.destroy();
+    this.joystickBase?.destroy();
+    this.joystickRing?.destroy();
+    this.joystickKnob?.destroy();
   }
 }

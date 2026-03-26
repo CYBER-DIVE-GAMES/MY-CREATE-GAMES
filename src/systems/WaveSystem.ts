@@ -389,15 +389,21 @@ export class WaveSystem {
   private triggerEvent(event: WaveEvent): void {
     if (event.type === 'wave') {
       const scale = this.getScaleFactor();
+      const W = this.scene.scale.width;
       for (const def of event.enemies) {
         const base = ENEMY_CONFIGS[def.key];
+        // 画面外（横）から入る敵はx固定、上から落ちる敵はランダムx
+        const isTopSpawn = def.x >= 0 && def.x <= W;
+        const spawnX = isTopSpawn
+          ? Phaser.Math.Between(40, W - 40)
+          : def.x;
         const cfg: EnemyConfig = {
           ...base,
           ...(def.overrides ?? {}),
-          x: def.x,
+          x: spawnX,
           y: def.y ?? -50,
           hp: Math.floor(base.hp * scale),
-          speed: Math.floor(base.speed * Math.sqrt(scale)), // speedは緩やかに
+          speed: Math.floor(base.speed * Math.sqrt(scale)),
           bulletDamage: Math.floor(base.bulletDamage * scale),
         };
         const enemy = new Enemy(this.scene, cfg, this.pool);

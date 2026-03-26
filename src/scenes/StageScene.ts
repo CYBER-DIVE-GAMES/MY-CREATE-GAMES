@@ -98,7 +98,7 @@ export class StageScene extends Phaser.Scene {
   // ─── HUD ─────────────────────────────────────────────
   private buildHUD(): void {
     const { width, height } = this.scale;
-    const BAR_W = width * 0.40;
+    const BAR_W = width * 0.35;
     const LEFT  = 10;
     const DEPTH = 100;
 
