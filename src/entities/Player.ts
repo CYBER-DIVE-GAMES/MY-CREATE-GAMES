@@ -78,9 +78,10 @@ export class Player {
   private lastFireTime: number = 0;
   private invincibleUntil: number = 0;
 
-  // タッチ / マウス操作
-  private pointerActive: boolean = false;
-  private pointerTargetX: number = 270;
+  // タッチ / マウス操作（スマホ: 左半分→左移動、右半分→右移動）
+  private touchMoveDir: number = 0;
+  private leftBtn!: Phaser.GameObjects.Text;
+  private rightBtn!: Phaser.GameObjects.Text;
 
   stats: PlayerStats;
   isAlive: boolean = true;
@@ -129,15 +130,37 @@ export class Player {
       };
     }
 
-    // タッチ / マウス操作
+    // タッチボタン（左右の視覚ガイド）
+    const { width, height } = scene.scale;
+    this.leftBtn = scene.add.text(48, height - 56, '◀', {
+      fontSize: '38px', color: '#ffffff',
+    }).setOrigin(0.5).setAlpha(0.25).setDepth(200);
+    this.rightBtn = scene.add.text(width - 48, height - 56, '▶', {
+      fontSize: '38px', color: '#ffffff',
+    }).setOrigin(0.5).setAlpha(0.25).setDepth(200);
+
+    // タッチ / マウス操作（左半分→左、右半分→右）
+    const getDir = (x: number) => x < width / 2 ? -1 : 1;
     scene.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-      this.pointerActive = true;
-      this.pointerTargetX = p.x;
+      if (p.y < 70) return; // HUD領域は無視
+      this.touchMoveDir = getDir(p.x);
+      (this.touchMoveDir < 0 ? this.leftBtn : this.rightBtn).setAlpha(0.75);
     });
     scene.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (p.isDown) this.pointerTargetX = p.x;
+      if (!p.isDown || p.y < 70) return;
+      const newDir = getDir(p.x);
+      if (newDir !== this.touchMoveDir) {
+        this.leftBtn.setAlpha(0.25);
+        this.rightBtn.setAlpha(0.25);
+        this.touchMoveDir = newDir;
+        (this.touchMoveDir < 0 ? this.leftBtn : this.rightBtn).setAlpha(0.75);
+      }
     });
-    scene.input.on('pointerup', () => { this.pointerActive = false; });
+    scene.input.on('pointerup', () => {
+      this.touchMoveDir = 0;
+      this.leftBtn.setAlpha(0.25);
+      this.rightBtn.setAlpha(0.25);
+    });
 
     // シールドバー（HPバーに重ねて表示）
     this.shieldBar = scene.add.rectangle(34, 18, 0, 14, 0x44ccff).setOrigin(0, 0.5).setDepth(103);
@@ -147,20 +170,12 @@ export class Player {
     if (!this.isAlive) return;
 
     // 移動
-    const left  = this.cursors?.left.isDown  || this.wasdKeys?.A.isDown;
-    const right = this.cursors?.right.isDown || this.wasdKeys?.D.isDown;
+    const left  = this.cursors?.left.isDown  || this.wasdKeys?.A.isDown || this.touchMoveDir < 0;
+    const right = this.cursors?.right.isDown || this.wasdKeys?.D.isDown || this.touchMoveDir > 0;
     if (left) {
       this.body.setVelocityX(-this.stats.speed);
     } else if (right) {
       this.body.setVelocityX(this.stats.speed);
-    } else if (this.pointerActive) {
-      const dx = this.pointerTargetX - this.sprite.x;
-      if (Math.abs(dx) > 6) {
-        this.body.setVelocityX(Math.sign(dx) * this.stats.speed);
-      } else {
-        this.body.setVelocityX(0);
-        this.pointerActive = false;
-      }
     } else {
       this.body.setVelocityX(0);
     }
@@ -213,8 +228,8 @@ export class Player {
       ? Math.floor(this.stats.damage * this.stats.critMultiplier)
       : this.stats.damage;
     const dmg = this.rushTimer > 0 ? Math.floor(baseDmg * 1.5) : baseDmg;
-    const color  = isCrit ? 0xffdd00 : 0x88ccff;
-    const radius = isCrit ? 7 : 5;
+    const color  = 0x88ccff; // 弾色統一（クリット時も同じ見た目）
+    const radius = 5;
 
     const sx = this.sprite.x;
     const sy = this.sprite.y - 20;
@@ -229,7 +244,7 @@ export class Player {
         this.pool.fire(this.scene, sx, sy,
           Math.cos(angle) * this.stats.bulletSpeed,
           Math.sin(angle) * this.stats.bulletSpeed,
-          d, 'player', critThis ? 0xffdd00 : color, radius);
+          d, 'player', color, radius);
       }
     } else {
       this.pool.fire(this.scene, sx, sy, 0, -this.stats.bulletSpeed, dmg, 'player', color, radius);
@@ -297,5 +312,7 @@ export class Player {
   destroy(): void {
     this.sprite.destroy();
     this.shieldBar.destroy();
+    this.leftBtn?.destroy();
+    this.rightBtn?.destroy();
   }
 }

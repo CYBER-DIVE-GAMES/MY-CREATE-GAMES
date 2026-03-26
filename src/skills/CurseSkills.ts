@@ -18,7 +18,7 @@ export const CURSE_SKILLS: SkillDef[] = [
     category: 'K', color: 0x8800cc, maxLevel: 1,
     description: (_lv) => '攻撃速度+200% / 弾が全方向に散乱',
     apply: (stats, _lv) => {
-      stats.fireInterval = 500 / 3.0;
+      stats.fireInterval = Math.floor(stats.fireInterval / 3.0);
       stats.scatterCount = Math.max(stats.scatterCount, 7);
     },
   },

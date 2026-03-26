@@ -25,7 +25,7 @@ export const ATTACK_SKILLS: SkillDef[] = [
     description: (lv) => ['攻撃速度 +30%', '攻撃速度 +60%', '攻撃速度 +100%'][lv - 1],
     apply: (stats, lv) => {
       const bonus = [0.3, 0.6, 1.0][lv - 1];
-      stats.fireInterval = 500 / (1 + bonus);
+      stats.fireInterval = Math.floor(stats.fireInterval / (1 + bonus));
     },
   },
   {

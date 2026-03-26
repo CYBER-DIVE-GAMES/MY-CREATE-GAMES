@@ -37,13 +37,6 @@ export const UTILITY_SKILLS: SkillDef[] = [
     apply: (stats, lv) => { stats.skillChoiceCount = [4, 5, 4][lv - 1]; },
   },
   {
-    id: 'D6_duplicate',
-    name: 'スキル複製',
-    category: 'D', color: 0x44cc44, maxLevel: 3,
-    description: (lv) => ['取得済みスキルの効果を30秒2倍（1分CD）', 'CD 45秒', 'CD 30秒+2スキルに適用'][lv - 1],
-    apply: (_stats, _lv) => { /* UI/アクティブスキルとして未来実装 */ },
-  },
-  {
     id: 'D7_lucky_bell',
     name: '幸運の鈴',
     category: 'D', color: 0x44cc44, maxLevel: 3,
@@ -56,19 +49,5 @@ export const UTILITY_SKILLS: SkillDef[] = [
     category: 'D', color: 0x44cc44, maxLevel: 3,
     description: (lv) => ['敵撃破でHP0.1%回復', '0.2%', '0.3%+XP取得量+10%'][lv - 1],
     apply: (stats, lv) => { stats.xpResonanceLevel = lv; },
-  },
-  {
-    id: 'D9_break_obstacle',
-    name: '障害物砲撃',
-    category: 'D', color: 0x44cc44, maxLevel: 3,
-    description: (lv) => ['落下障害物を破壊可能に', '破壊時に周囲に爆発', '破壊時に妖核もドロップ'][lv - 1],
-    apply: (_stats, _lv) => { /* ObstacleSystem側で管理 */ },
-  },
-  {
-    id: 'D10_multi_bonus',
-    name: 'マルチボーナス',
-    category: 'D', color: 0x44cc44, maxLevel: 3,
-    description: (lv) => ['同一スキル3つ目取得時にボーナス効果', '2つ目から適用', '追加効果の強度1.5倍'][lv - 1],
-    apply: (_stats, _lv) => { /* SkillSystem側で管理 */ },
   },
 ];
