@@ -88,6 +88,11 @@ export class Player {
   private joystickDx: number = 0;
   private readonly JOYSTICK_R: number = 52;
 
+  // ジャンプ
+  private jumpKey?: Phaser.Input.Keyboard.Key;
+  private jumpBtn?: Phaser.GameObjects.Arc;
+  private jumpBtnText?: Phaser.GameObjects.Text;
+
   stats: PlayerStats;
   isAlive: boolean = true;
 
@@ -114,14 +119,15 @@ export class Player {
     this.stats = { ...BASE_PLAYER_STATS };
 
     // スプライト（画像）
-    this.sprite = scene.add.sprite(270, 880, 'player', 0);
-    this.sprite.setDepth(10).setScale(1.5);
+    this.sprite = scene.add.sprite(270, 780, 'player', 0);
+    this.sprite.setDepth(10).setScale(2.5);
 
     scene.physics.add.existing(this.sprite);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
     this.body.setCollideWorldBounds(true);
-    this.body.setSize(22, 30);
-    this.body.setOffset(13, 9);
+    this.body.setSize(18, 26);
+    this.body.setOffset(15, 11);
+    this.body.setGravityY(1400);
 
     // アニメーション定義（重複作成を防ぐ）
     if (!scene.anims.exists('player_idle')) {
@@ -161,6 +167,7 @@ export class Player {
         A: scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
         D: scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
       };
+      this.jumpKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
 
     // バーチャルジョイスティック（タッチデバイスのみ表示）
@@ -173,7 +180,7 @@ export class Player {
         .setDepth(201).setVisible(false);
 
       scene.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-        if (p.y < 70) return;
+        if (p.y < 70 || p.x > scene.scale.width * 0.55) return; // 左55%のみ
         this.joystickBaseX = p.x;
         this.joystickBaseY = p.y;
         this.joystickBase!.setPosition(p.x, p.y).setVisible(true);
@@ -205,6 +212,17 @@ export class Player {
       });
     }
 
+    // ジャンプボタン（タッチデバイスのみ・右下）
+    if (isTouchDevice) {
+      const bx = scene.scale.width - 75;
+      const by = scene.scale.height - 110;
+      this.jumpBtn = scene.add.circle(bx, by, 42, 0x4488ff, 0.65).setDepth(200).setInteractive();
+      this.jumpBtnText = scene.add.text(bx, by, '↑', {
+        fontSize: '26px', color: '#ffffff', fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(201);
+      this.jumpBtn.on('pointerdown', () => this.tryJump());
+    }
+
     // シールドバー（HPバーに重ねて表示）
     this.shieldBar = scene.add.rectangle(34, 18, 0, 14, 0x44ccff).setOrigin(0, 0.5).setDepth(103);
   }
@@ -222,7 +240,10 @@ export class Player {
     } else {
       this.body.setVelocityX(0);
     }
-    this.body.setVelocityY(0);
+    // ジャンプ（スペースキー）
+    if (this.jumpKey && Phaser.Input.Keyboard.JustDown(this.jumpKey)) {
+      this.tryJump();
+    }
 
     // アニメーション切り替え
     const moving = left || right;
@@ -273,6 +294,13 @@ export class Player {
       this.sprite.setAlpha(Math.sin(time / 60) > 0 ? 1 : 0.3);
     } else {
       this.sprite.setAlpha(1);
+    }
+  }
+
+  tryJump(): void {
+    if (this.body.blocked.down) {
+      this.body.setVelocityY(-720);
+      this.sprite.play('player_special', true);
     }
   }
 
@@ -372,5 +400,7 @@ export class Player {
     this.joystickBase?.destroy();
     this.joystickRing?.destroy();
     this.joystickKnob?.destroy();
+    this.jumpBtn?.destroy();
+    this.jumpBtnText?.destroy();
   }
 }

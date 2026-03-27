@@ -47,6 +47,9 @@ export class StageScene extends Phaser.Scene {
   // XP ジェム
   private xpGems: Phaser.GameObjects.Arc[] = [];
 
+  // 地面
+  private groundPlatform!: Phaser.GameObjects.Rectangle;
+
   constructor() {
     super({ key: 'StageScene' });
   }
@@ -70,22 +73,34 @@ export class StageScene extends Phaser.Scene {
     this.synergyTexts = [];
 
     // 背景
-    const bg = this.add.graphics();
-    bg.fillGradientStyle(0x050510, 0x050510, 0x0a0520, 0x0a0520, 1);
-    bg.fillRect(0, 0, width, height);
-
-    for (let i = 0; i < 60; i++) {
-      const x = Phaser.Math.Between(0, width);
-      const y = Phaser.Math.Between(0, height);
-      this.add.circle(x, y, Phaser.Math.FloatBetween(0.5, 2), 0xffffff,
-        Phaser.Math.FloatBetween(0.2, 0.6));
+    if (this.textures.exists('haikei')) {
+      const bg = this.add.image(width / 2, height / 2, 'haikei').setDepth(0);
+      bg.setDisplaySize(width, height);
+    } else {
+      const bg = this.add.graphics();
+      bg.fillGradientStyle(0x050510, 0x050510, 0x0a0520, 0x0a0520, 1);
+      bg.fillRect(0, 0, width, height);
+      for (let i = 0; i < 60; i++) {
+        const x = Phaser.Math.Between(0, width);
+        const y = Phaser.Math.Between(0, height);
+        this.add.circle(x, y, Phaser.Math.FloatBetween(0.5, 2), 0xffffff,
+          Phaser.Math.FloatBetween(0.2, 0.6));
+      }
     }
+
+    // 地面プラットフォーム（透明・haikei.pngの地面に合わせてGROUND_Yを調整）
+    const GROUND_Y = Math.floor(height * 0.88); // 約845px — 背景の地面位置に合わせて調整
+    this.groundPlatform = this.add.rectangle(width / 2, GROUND_Y, width, 8, 0x000000, 0);
+    this.physics.add.existing(this.groundPlatform, true);
 
     this.playerPool = new BulletPool(this);
     this.enemyPool  = new BulletPool(this);
 
     this.player = new Player(this, this.playerPool);
     this.player.sprite.setData('isPlayer', true);
+
+    // プレイヤーと地面の衝突
+    this.physics.add.collider(this.player.sprite, this.groundPlatform);
 
     this.skillSystem  = new SkillSystem();
     this.xpSystem     = new XPSystem((level) => this.onLevelUp(level));

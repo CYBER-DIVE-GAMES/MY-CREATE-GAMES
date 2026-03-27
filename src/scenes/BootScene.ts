@@ -33,6 +33,8 @@ export class BootScene extends Phaser.Scene {
       frameWidth: 48,
       frameHeight: 48,
     });
+    // ステージ背景
+    this.load.image('haikei', 'assets/images/haikei.png');
   }
 
   create(): void {
