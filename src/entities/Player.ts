@@ -342,18 +342,18 @@ export class Player {
         const d = critThis ? Math.floor(this.stats.damage * this.stats.critMultiplier) : dmg;
         const vx = Math.cos(angle) * this.stats.bulletSpeed;
         const vy = Math.sin(angle) * this.stats.bulletSpeed;
-        this.pool.fire(this.scene, sx, sy, vx, vy, d, 'player', color, radius, i === 0);
+        this.pool.fire(this.scene, sx, sy, vx, vy, d, 'player', color, radius, true);  // always use zangeki
       }
     } else {
       // 単発: 斬撃ビジュアル使用
       this.pool.fire(this.scene, sx, sy, 0, -this.stats.bulletSpeed, dmg, 'player', color, radius, true);
     }
 
-    // サイドガン（C1）: 通常丸弾
+    // サイドガン（C1）: 黄色斬撃弾
     for (let i = 0; i < this.stats.sideGunCount; i++) {
       const offset = (i + 1) * 30;
-      this.pool.fire(this.scene, sx - offset, sy, -20, -this.stats.bulletSpeed * 0.9, dmg, 'player', 0x88eecc, 4);
-      this.pool.fire(this.scene, sx + offset, sy,  20, -this.stats.bulletSpeed * 0.9, dmg, 'player', 0x88eecc, 4);
+      this.pool.fire(this.scene, sx - offset, sy, -20, -this.stats.bulletSpeed * 0.9, dmg, 'player', 0xffff00, 5, true, 0xffdd00);
+      this.pool.fire(this.scene, sx + offset, sy,  20, -this.stats.bulletSpeed * 0.9, dmg, 'player', 0xffff00, 5, true, 0xffdd00);
     }
 
     // 後方砲撃（C2）

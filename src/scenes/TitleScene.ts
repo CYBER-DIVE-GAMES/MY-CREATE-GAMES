@@ -124,8 +124,12 @@ export class TitleScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const saveData = SaveSystem.load();
 
-    // 背景
-    this.add.rectangle(width / 2, height / 2, width, height, 0x050510);
+    // 背景画像
+    if (this.textures.exists('title_bg')) {
+      this.add.image(width / 2, height / 2, 'title_bg').setDisplaySize(width, height).setDepth(0);
+    } else {
+      this.add.rectangle(width / 2, height / 2, width, height, 0x050510);
+    }
 
     // 星のパーティクル
     for (let i = 0; i < 80; i++) {
@@ -133,7 +137,7 @@ export class TitleScene extends Phaser.Scene {
       const y = Phaser.Math.Between(0, height);
       const size = Phaser.Math.FloatBetween(1, 3);
       const alpha = Phaser.Math.FloatBetween(0.3, 1.0);
-      const star = this.add.circle(x, y, size, 0xffffff, alpha);
+      const star = this.add.circle(x, y, size, 0xffffff, alpha).setDepth(1);
       this.tweens.add({
         targets: star,
         alpha: { from: alpha, to: 0.1 },
@@ -144,57 +148,81 @@ export class TitleScene extends Phaser.Scene {
       });
     }
 
+    // タイトルパネル
+    const panelH = 200;
+    const panelG = this.add.graphics().setDepth(2);
+    panelG.fillStyle(0x000000, 0.55);
+    panelG.fillRect(0, 130, width, panelH);
+    // 上下の金色ライン
+    panelG.lineStyle(2, 0xffd700, 0.7);
+    panelG.strokeRect(0, 130, width, panelH);
+
     // タイトルロゴ
     this.add.text(width / 2, 200, '天穿閃乱', {
-      fontSize: '56px',
+      fontSize: '64px',
       color: '#ffd700',
       fontStyle: 'bold',
       stroke: '#ff6600',
-      strokeThickness: 4,
-    }).setOrigin(0.5);
+      strokeThickness: 5,
+    }).setOrigin(0.5).setDepth(3);
 
-    this.add.text(width / 2, 270, '～ Heavenpiercer ～', {
+    this.add.text(width / 2, 285, '～ Heavenpiercer ～', {
       fontSize: '22px',
-      color: '#aaaaff',
-    }).setOrigin(0.5);
+      color: '#ccbbff',
+    }).setOrigin(0.5).setDepth(3);
 
     // 妖核表示
-    const youkakuText = this.add.text(width / 2, 360, `妖核：${saveData.youkaku} 個`, {
+    const youkakuText = this.add.text(width / 2, 380, `妖核：${saveData.youkaku} 個`, {
       fontSize: '20px',
       color: '#cc88ff',
-    }).setOrigin(0.5);
+      stroke: '#220022',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(3);
 
-    // スタートボタン
-    const startBtn = this.add.text(width / 2, 500, '【 ゲームスタート 】', {
-      fontSize: '28px',
-      color: '#ffffff',
-      backgroundColor: '#331144',
-      padding: { x: 20, y: 12 },
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    // 「はじめる」ボタン
+    const startBtnBg = this.add.graphics().setDepth(3);
+    const drawStartBtn = (hovered: boolean) => {
+      startBtnBg.clear();
+      startBtnBg.fillStyle(hovered ? 0x552266 : 0x331144, 1);
+      startBtnBg.fillRoundedRect(width/2 - 120, 470, 240, 60, 12);
+      startBtnBg.lineStyle(2, hovered ? 0xffd700 : 0xaa88cc, 1);
+      startBtnBg.strokeRoundedRect(width/2 - 120, 470, 240, 60, 12);
+    };
+    drawStartBtn(false);
 
-    startBtn.on('pointerover', () => startBtn.setColor('#ffd700'));
-    startBtn.on('pointerout', () => startBtn.setColor('#ffffff'));
-    startBtn.on('pointerdown', () => this.scene.start('StageScene', { stage: 1 }));
+    const startText = this.add.text(width / 2, 500, 'はじめる', {
+      fontSize: '32px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(4);
+    const startZone = this.add.zone(width/2, 500, 240, 60).setInteractive({ useHandCursor: true });
+    startZone.on('pointerover', () => { drawStartBtn(true); startText.setColor('#ffd700'); });
+    startZone.on('pointerout', () => { drawStartBtn(false); startText.setColor('#ffffff'); });
+    startZone.on('pointerdown', () => this.scene.start('StageScene', { stage: 1 }));
 
-    // 永続強化ボタン
-    const upgradeBtn = this.add.text(width / 2, 600, '【 修行の間 】', {
-      fontSize: '22px',
-      color: '#cc88ff',
-      backgroundColor: '#220033',
-      padding: { x: 16, y: 10 },
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    // 「修行の間」ボタン
+    const trainBtnBg = this.add.graphics().setDepth(3);
+    const drawTrainBtn = (hovered: boolean) => {
+      trainBtnBg.clear();
+      trainBtnBg.fillStyle(hovered ? 0x331133 : 0x220033, 1);
+      trainBtnBg.fillRoundedRect(width/2 - 100, 570, 200, 50, 10);
+      trainBtnBg.lineStyle(2, hovered ? 0xcc88ff : 0x664488, 1);
+      trainBtnBg.strokeRoundedRect(width/2 - 100, 570, 200, 50, 10);
+    };
+    drawTrainBtn(false);
 
-    upgradeBtn.on('pointerover', () => upgradeBtn.setColor('#ffffff'));
-    upgradeBtn.on('pointerout', () => upgradeBtn.setColor('#cc88ff'));
-    upgradeBtn.on('pointerdown', () => {
+    const trainText = this.add.text(width / 2, 595, '修行の間', {
+      fontSize: '26px', color: '#cc88ff',
+    }).setOrigin(0.5).setDepth(4);
+    const trainZone = this.add.zone(width/2, 595, 200, 50).setInteractive({ useHandCursor: true });
+    trainZone.on('pointerover', () => { drawTrainBtn(true); trainText.setColor('#ffffff'); });
+    trainZone.on('pointerout', () => { drawTrainBtn(false); trainText.setColor('#cc88ff'); });
+    trainZone.on('pointerdown', () => {
       this.showUpgradeTree(youkakuText);
     });
 
     // バージョン
     this.add.text(width - 10, height - 10, 'v0.2.0 Phase2', {
-      fontSize: '14px',
-      color: '#444466',
-    }).setOrigin(1, 1);
+      fontSize: '14px', color: '#444466',
+    }).setOrigin(1, 1).setDepth(3);
   }
 
   private showUpgradeTree(youkakuText: Phaser.GameObjects.Text): void {

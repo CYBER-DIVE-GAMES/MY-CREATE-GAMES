@@ -35,6 +35,8 @@ export class StageScene extends Phaser.Scene {
   private regenTimer: number = 0;
   private youkakuThisRun: number = 0;
   private stageCleared: boolean = false;
+  private pendingLevelUps: number[] = [];
+  private levelUpInProgress: boolean = false;
 
   // ランタイムスキルオブジェクト
   private orbitalBullets: Phaser.GameObjects.Arc[] = [];
@@ -72,6 +74,8 @@ export class StageScene extends Phaser.Scene {
     this.orbitalBullets = [];
     this.xpGems = [];
     this.synergyTexts = [];
+    this.pendingLevelUps = [];
+    this.levelUpInProgress = false;
 
     // 背景
     if (this.textures.exists('haikei')) {
@@ -322,20 +326,54 @@ export class StageScene extends Phaser.Scene {
     const maxChain = stats.dischargeLevel >= 3 ? 3 : 1;
 
     let hit = 0;
+    const hitPositions: {x: number, y: number}[] = [];
     for (const enemy of this.waveSystem.enemies) {
       if (!enemy.isAlive || hit >= maxChain) continue;
       const dist = Phaser.Math.Distance.Between(px, py, enemy.sprite.x, enemy.sprite.y);
       if (dist < range) {
         enemy.takeDamage(dmg);
         hit++;
-        // 電撃ビジュアル
-        const line = this.add.graphics();
-        line.lineStyle(2, 0xffff44, 0.8);
-        const lx = enemy.sprite.x, ly = enemy.sprite.y;
-        line.strokeLineShape(new Phaser.Geom.Line(px, py, lx, ly));
-        this.time.delayedCall(150, () => line.destroy());
-        if (!enemy.isAlive) this.onEnemyKilled(lx, ly, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
+        hitPositions.push({ x: enemy.sprite.x, y: enemy.sprite.y });
+        if (!enemy.isAlive) this.onEnemyKilled(enemy.sprite.x, enemy.sprite.y, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
       }
+    }
+
+    // 電撃ビジュアル（大きく派手に）
+    for (const pos of hitPositions) {
+      // 太い主線
+      const bolt = this.add.graphics();
+      bolt.lineStyle(6, 0xffffff, 1.0);
+      bolt.strokeLineShape(new Phaser.Geom.Line(px, py, pos.x, pos.y));
+      // 中間線（黄色）
+      const bolt2 = this.add.graphics();
+      bolt2.lineStyle(3, 0xffff00, 0.9);
+      // ジャグザグライン
+      const steps = 8;
+      const points: Phaser.Math.Vector2[] = [];
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const jx = px + (pos.x - px) * t + (i > 0 && i < steps ? (Math.random() - 0.5) * 20 : 0);
+        const jy = py + (pos.y - py) * t + (i > 0 && i < steps ? (Math.random() - 0.5) * 20 : 0);
+        points.push(new Phaser.Math.Vector2(jx, jy));
+      }
+      bolt2.strokePoints(points, false);
+
+      // 着弾エフェクト（円閃光）
+      const flash = this.add.circle(pos.x, pos.y, 25, 0xffff44, 0.85).setDepth(15);
+      const innerFlash = this.add.circle(pos.x, pos.y, 12, 0xffffff, 1.0).setDepth(16);
+
+      this.tweens.add({
+        targets: [bolt, bolt2], alpha: 0, duration: 200,
+        onComplete: () => { bolt.destroy(); bolt2.destroy(); },
+      });
+      this.tweens.add({
+        targets: flash, alpha: 0, scaleX: 2.5, scaleY: 2.5, duration: 250,
+        onComplete: () => flash.destroy(),
+      });
+      this.tweens.add({
+        targets: innerFlash, alpha: 0, scaleX: 1.8, scaleY: 1.8, duration: 150,
+        onComplete: () => innerFlash.destroy(),
+      });
     }
   }
 
@@ -424,6 +462,7 @@ export class StageScene extends Phaser.Scene {
           // sprite破棄前に座標を保存
           const ex = enemy.sprite.x, ey = enemy.sprite.y;
           enemy.takeDamage(dmg);
+          this.showDamageNumber(enemy.sprite.x, enemy.sprite.y, dmg);
           this.sound.play('se_hit_enemy', { volume: 0.25 });
           this.applyBulletEffects(enemy, stats);
 
@@ -469,6 +508,7 @@ export class StageScene extends Phaser.Scene {
         if (dist < bullet.radius + 45) {
           const dmg = bullet.getData('damage') as number;
           this.boss.takeDamage(dmg);
+          this.showDamageNumber(this.boss.sprite.x, this.boss.sprite.y, dmg);
           if (stats.lifeStealRate > 0) this.player.heal(Math.ceil(dmg * stats.lifeStealRate));
           if (stats.explosionLevel > 0) this.doExplosion(bullet.x, bullet.y, stats);
           this.playerPool.killBullet(bullet);
@@ -567,7 +607,7 @@ export class StageScene extends Phaser.Scene {
   // ─── 敵撃破処理 ───────────────────────────────────────
   private onEnemyKilled(x: number, y: number, xp: number, youkakuDrop: number, youkakuChance: number): void {
     // XP ジェムを配置
-    const gem = this.add.circle(x, y, 6, 0x88ff88).setDepth(4);
+    const gem = this.add.circle(x, y, 7, 0x00ff88).setDepth(4).setStrokeStyle(2, 0xffffff, 0.6);
     gem.setData('xp', xp);
     this.xpGems.push(gem);
 
@@ -600,11 +640,45 @@ export class StageScene extends Phaser.Scene {
     if (Math.random() > chance * (1 + stats.youkakuBonusRate * 0.5)) return;
     this.youkakuThisRun += finalAmount;
 
-    const gem = this.add.circle(x, y, 6, 0xcc88ff).setDepth(4);
+    // 宝石風の落下エフェクト
+    const g = this.add.graphics().setDepth(5);
+    const drawGem = (gx: number, gy: number, scale: number, alpha: number) => {
+      g.clear();
+      g.fillStyle(0xdd88ff, alpha);
+      g.fillTriangle(gx, gy - 10*scale, gx - 7*scale, gy + 4*scale, gx + 7*scale, gy + 4*scale);
+      g.fillStyle(0xaa44cc, alpha);
+      g.fillTriangle(gx - 7*scale, gy + 4*scale, gx + 7*scale, gy + 4*scale, gx, gy + 10*scale);
+      g.fillStyle(0xffffff, alpha * 0.6);
+      g.fillTriangle(gx - 2*scale, gy - 8*scale, gx + 4*scale, gy - 4*scale, gx - 2*scale, gy + 2*scale);
+    };
+    drawGem(x, y, 1, 1);
+
+    // 落下アニメーション
+    const targetY = this.scale.height - 80;
+    const duration = 1200 + Math.random() * 400;
+    const tweenObj = { x: x + (Math.random() - 0.5) * 30, y };
     this.tweens.add({
-      targets: gem, y: y - 30, alpha: 0, duration: 600,
-      onComplete: () => gem.destroy(),
+      targets: tweenObj,
+      y: targetY,
+      duration,
+      ease: 'Quad.easeIn',
+      onUpdate: () => {
+        drawGem(tweenObj.x, tweenObj.y, 1, 1);
+      },
+      onComplete: () => {
+        // 着地フラッシュ
+        this.tweens.add({
+          targets: tweenObj,
+          duration: 300,
+          onUpdate: (tw) => {
+            const prog = tw.progress;
+            drawGem(tweenObj.x, tweenObj.y, 1 + prog * 0.3, 1 - prog);
+          },
+          onComplete: () => g.destroy(),
+        });
+      },
     });
+
     this.youkakuText.setText(`妖核: ${this.youkakuThisRun}`);
   }
 
@@ -665,14 +739,22 @@ export class StageScene extends Phaser.Scene {
   // ─── レベルアップ ─────────────────────────────────────
   private onLevelUp(level: number): void {
     this.skillSystem.setCurrentLevel(level);
-
-    // D3 ラッシュ
+    // Rush buff D3
     const rushLv = this.skillSystem.getSkillLevel('D3_rush');
     if (rushLv > 0) {
       const dur = [3000, 5000, 7000][rushLv - 1];
       this.player.rushTimer = dur;
     }
 
+    if (this.levelUpInProgress) {
+      this.pendingLevelUps.push(level);
+      return;
+    }
+    this.showLevelUpUI(level);
+  }
+
+  private showLevelUpUI(level: number): void {
+    this.levelUpInProgress = true;
     const { width, height } = this.scale;
     const flash = this.add.rectangle(width / 2, height / 2, width, height, 0xffffff, 0.25).setDepth(200);
     this.tweens.add({ targets: flash, alpha: 0, duration: 400, onComplete: () => flash.destroy() });
@@ -684,23 +766,28 @@ export class StageScene extends Phaser.Scene {
       onComplete: () => lvText.destroy() });
 
     this.paused = true;
-    this.physics.world.pause();  // 敵・弾すべての物理を停止
+    this.physics.world.pause();
     this.time.delayedCall(600, () => {
       const choiceCount = this.player.stats.skillChoiceCount;
       const cards = this.skillSystem.drawCards(choiceCount);
+      const resumeAll = () => {
+        this.levelUpInProgress = false;
+        this.paused = false;
+        this.physics.world.resume();
+        if (this.pendingLevelUps.length > 0) {
+          const nextLv = this.pendingLevelUps.shift()!;
+          this.time.delayedCall(200, () => this.showLevelUpUI(nextLv));
+        }
+      };
       if (cards.length > 0) {
         this.scene.launch('LevelUpScene', {
           cards,
           skillSystem: this.skillSystem,
           playerStats: this.player.stats,
-          onClose: () => {
-            this.paused = false;
-            this.physics.world.resume();  // 選択後に再開
-          },
+          onClose: resumeAll,
         });
       } else {
-        this.paused = false;
-        this.physics.world.resume();
+        resumeAll();
       }
     });
   }
@@ -712,10 +799,10 @@ export class StageScene extends Phaser.Scene {
 
     this.boss = new Boss(this, this.enemyPool, def.name, def.maxHp, def.phases);
 
-    // BGM切り替え（中ボス・大ボスのみ）
-    if (type === 'midboss' || type === 'boss') {
+    // BGM切り替え
+    if (type === 'midboss' || type === 'boss' || type === 'miniboss') {
       this.bgm?.stop();
-      const bgmKey = type === 'boss' ? 'bgm_boss' : 'bgm_midboss';
+      const bgmKey = type === 'boss' ? 'bgm_boss' : type === 'midboss' ? 'bgm_midboss' : 'bgm_smallboss';
       this.bgm = this.sound.add(bgmKey, { loop: true, volume: 0.7 });
       this.bgm.play();
     }
@@ -778,6 +865,25 @@ export class StageScene extends Phaser.Scene {
         level: this.xpSystem.getLevel(),
         elapsed: this.waveSystem.getElapsed(),
       });
+    });
+  }
+
+  // ─── ダメージ数字表示 ────────────────────────────────
+  private showDamageNumber(x: number, y: number, dmg: number): void {
+    const txt = this.add.text(x, y - 20, String(dmg), {
+      fontSize: '16px',
+      color: '#ffff88',
+      stroke: '#000000',
+      strokeThickness: 3,
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(50);
+    this.tweens.add({
+      targets: txt,
+      y: y - 70,
+      alpha: 0,
+      duration: 500,
+      ease: 'Quad.easeOut',
+      onComplete: () => txt.destroy(),
     });
   }
 

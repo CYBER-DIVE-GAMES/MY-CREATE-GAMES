@@ -37,13 +37,6 @@ export const BULLET_SKILLS: SkillDef[] = [
     apply: (stats, lv) => { stats.laserLevel = lv; },
   },
   {
-    id: 'C8_turret',
-    name: '自動砲台',
-    category: 'C', color: 0xff8800, maxLevel: 3,
-    description: (lv) => ['5秒ごとに砲台設置（10秒持続）', '15秒持続', '20秒持続+砲台が移動'][lv - 1],
-    apply: (stats, lv) => { stats.turretLevel = lv; },
-  },
-  {
     id: 'C9_bullet_speed',
     name: '弾速上昇',
     category: 'C', color: 0xff8800, maxLevel: 3,

@@ -33,7 +33,8 @@ export class BulletPool {
     owner: 'player' | 'enemy',
     color: number = 0xffffff,
     radius: number = 5,
-    useZangeki: boolean = false
+    useZangeki: boolean = false,
+    tint?: number
   ): Phaser.GameObjects.Arc | null {
     // 既存の非アクティブな弾を再利用
     let bullet = this.group.getFirstDead(false) as Phaser.GameObjects.Arc | null;
@@ -60,6 +61,11 @@ export class BulletPool {
       // 飛翔角度に合わせて回転（上方向がデフォルト = -90°）
       img.setRotation(Math.atan2(vy, vx) + Math.PI / 2);
       img.setScale(1.0);
+      if (tint !== undefined) {
+        img.setTint(tint);
+      } else {
+        img.clearTint();
+      }
     } else {
       bullet.setAlpha(1);
       // 既存のビジュアルがあれば非表示
