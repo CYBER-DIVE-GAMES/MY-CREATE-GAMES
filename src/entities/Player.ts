@@ -118,15 +118,15 @@ export class Player {
     this.pool = pool;
     this.stats = { ...BASE_PLAYER_STATS };
 
-    // スプライト（画像）
+    // スプライト（128×128フレーム）
     this.sprite = scene.add.sprite(270, 780, 'player', 0);
-    this.sprite.setDepth(10).setScale(1.25);
+    this.sprite.setDepth(10).setScale(1.0);
 
     scene.physics.add.existing(this.sprite);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
     this.body.setCollideWorldBounds(true);
-    this.body.setSize(36, 52);
-    this.body.setOffset(30, 22);
+    this.body.setSize(48, 70);
+    this.body.setOffset(40, 30);
     this.body.setGravityY(1400);
 
     // アニメーション定義（重複作成を防ぐ）

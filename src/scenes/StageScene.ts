@@ -705,6 +705,14 @@ export class StageScene extends Phaser.Scene {
 
     this.boss = new Boss(this, this.enemyPool, def.name, def.maxHp, def.phases);
 
+    // BGM切り替え（中ボス・大ボスのみ）
+    if (type === 'midboss' || type === 'boss') {
+      this.bgm?.stop();
+      const bgmKey = type === 'boss' ? 'bgm_boss' : 'bgm_midboss';
+      this.bgm = this.sound.add(bgmKey, { loop: true, volume: 0.7 });
+      this.bgm.play();
+    }
+
     const { width, height } = this.scale;
     const color = type === 'boss' ? '#ffdd00' : type === 'midboss' ? '#ff88aa' : '#ff8888';
     const t = this.add.text(width / 2, height / 2 - 120, `-- ${def.name} --`,
@@ -736,6 +744,11 @@ export class StageScene extends Phaser.Scene {
         // ラスボス撃破ならクリア
         if (this.waveSystem.getElapsed() >= 1799) {
           this.onStageClear();
+        } else {
+          // ボスBGMが流れていた場合はステージBGMに戻す
+          this.bgm?.stop();
+          this.bgm = this.sound.add('bgm_stage1', { loop: true, volume: 0.6 });
+          this.bgm.play();
         }
       },
     });

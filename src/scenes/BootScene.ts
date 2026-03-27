@@ -28,16 +28,18 @@ export class BootScene extends Phaser.Scene {
       color: '#ffffff',
     }).setOrigin(0.5);
 
-    // プレイヤースプライトシート（96x96 × 3列4行 = 12フレーム）
+    // プレイヤースプライトシート（128x128 × 3列4行 = 12フレーム）
     this.load.spritesheet('player', 'assets/images/player.png', {
-      frameWidth: 96,
-      frameHeight: 96,
+      frameWidth: 128,
+      frameHeight: 128,
     });
     // ステージ背景
     this.load.image('haikei', 'assets/images/haikei.png');
 
     // BGM
-    this.load.audio('bgm_stage1', 'assets/audio/bgm_stage1.mp3');
+    this.load.audio('bgm_stage1',   'assets/audio/bgm_stage1.mp3');
+    this.load.audio('bgm_midboss',  'assets/audio/bgm_midboss.mp3');
+    this.load.audio('bgm_boss',     'assets/audio/bgm_boss.mp3');
 
     // 敵スプライトシート（4フレーム × 48×48px）
     const enemyFrame = { frameWidth: 48, frameHeight: 48 };
