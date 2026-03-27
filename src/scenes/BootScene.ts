@@ -35,6 +35,12 @@ export class BootScene extends Phaser.Scene {
     });
     // ステージ背景
     this.load.image('haikei', 'assets/images/haikei.png');
+
+    // 敵スプライトシート（4フレーム × 48×48px）
+    const enemyFrame = { frameWidth: 48, frameHeight: 48 };
+    this.load.spritesheet('kitunebi_sheet', 'assets/images/kitunebi_sheet.png', enemyFrame);
+    this.load.spritesheet('musha_sheet',    'assets/images/musha_sheet.png',    enemyFrame);
+    this.load.spritesheet('otome_sheet',    'assets/images/otome_sheet.png',    enemyFrame);
   }
 
   create(): void {

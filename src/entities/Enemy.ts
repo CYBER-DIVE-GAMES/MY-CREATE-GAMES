@@ -24,12 +24,14 @@ export interface EnemyConfig {
   firePattern: FirePattern;
   fireInterval: number;
   bulletDamage: number;
+  textureKey?: string;   // スプライト画像キー（省略時はプログラム描画）
+  spriteScale?: number;  // スプライト表示スケール
 }
 
 export const ENEMY_CONFIGS: Record<string, Omit<EnemyConfig, 'x' | 'y'>> = {
-  foxfire:      { hp: 60,  speed: 120, xp: 5,   youkakuDrop: 1, youkakuChance: 0.35, color: 0x88aaff, size: 14, movePattern: 'straight',         firePattern: 'none',         fireInterval: 9999, bulletDamage: 0  },
-  ghost_warrior:{ hp: 180, speed: 90,  xp: 15,  youkakuDrop: 1, youkakuChance: 0.5,  color: 0xaaaadd, size: 18, movePattern: 'straight',          firePattern: 'forward3',     fireInterval: 2000, bulletDamage: 8  },
-  cherry_spirit:{ hp: 80,  speed: 55,  xp: 10,  youkakuDrop: 1, youkakuChance: 0.4,  color: 0xffbbcc, size: 16, movePattern: 'wave_slow',         firePattern: 'radial8',      fireInterval: 2500, bulletDamage: 6  },
+  foxfire:      { hp: 60,  speed: 120, xp: 5,   youkakuDrop: 1, youkakuChance: 0.35, color: 0x88aaff, size: 14, movePattern: 'straight',         firePattern: 'none',         fireInterval: 9999, bulletDamage: 0,  textureKey: 'kitunebi_sheet', spriteScale: 1.2 },
+  ghost_warrior:{ hp: 180, speed: 90,  xp: 15,  youkakuDrop: 1, youkakuChance: 0.5,  color: 0xaaaadd, size: 18, movePattern: 'straight',          firePattern: 'forward3',     fireInterval: 2000, bulletDamage: 8,  textureKey: 'musha_sheet',    spriteScale: 1.6 },
+  cherry_spirit:{ hp: 80,  speed: 55,  xp: 10,  youkakuDrop: 1, youkakuChance: 0.4,  color: 0xffbbcc, size: 16, movePattern: 'wave_slow',         firePattern: 'radial8',      fireInterval: 2500, bulletDamage: 6,  textureKey: 'otome_sheet',    spriteScale: 1.4 },
   skull_lantern:{ hp: 200, speed: 45,  xp: 20,  youkakuDrop: 1, youkakuChance: 0.6,  color: 0xffffaa, size: 20, movePattern: 'straight',          firePattern: 'fan5_alt',     fireInterval: 1800, bulletDamage: 7  },
   fire_serpent: { hp: 400, speed: 75,  xp: 40,  youkakuDrop: 2, youkakuChance: 0.5, color: 0xff8800, size: 24, movePattern: 'wave',              firePattern: 'forward_stream',fireInterval: 500,  bulletDamage: 10 },
   yaksha_eye:   { hp: 200, speed: 80,  xp: 20,  youkakuDrop: 1, youkakuChance: 0.4, color: 0xff2222, size: 16, movePattern: 'edge_bounce',       firePattern: 'aimed_fast',   fireInterval: 1500, bulletDamage: 12 },
@@ -49,6 +51,7 @@ export interface StatusEffect {
 export class Enemy {
   readonly scene: Phaser.Scene;
   readonly sprite: Phaser.GameObjects.Arc;
+  private visualSprite?: Phaser.GameObjects.Sprite;
   private pool: BulletPool;
   readonly config: EnemyConfig;
 
@@ -83,6 +86,23 @@ export class Enemy {
     scene.physics.add.existing(this.sprite);
     this.sprite.setDepth(5);
 
+    // スプライト画像がある場合はビジュアルスプライトを作成（物理は Arc が担当）
+    if (config.textureKey && scene.textures.exists(config.textureKey)) {
+      this.sprite.setAlpha(0); // 物理用 Arc を非表示
+      this.visualSprite = scene.add.sprite(config.x, config.y, config.textureKey)
+        .setDepth(5).setScale(config.spriteScale ?? 1.0);
+      const animKey = `${config.textureKey}_move`;
+      if (!scene.anims.exists(animKey)) {
+        scene.anims.create({
+          key: animKey,
+          frames: scene.anims.generateFrameNumbers(config.textureKey, { start: 0, end: 3 }),
+          frameRate: 8,
+          repeat: -1,
+        });
+      }
+      this.visualSprite.play(animKey);
+    }
+
     this.edgeMoveDir = Math.random() < 0.5 ? 1 : -1;
     this.rotationAngle = Math.random() * Math.PI * 2;
 
@@ -93,6 +113,10 @@ export class Enemy {
 
   update(delta: number): void {
     if (!this.isAlive) return;
+    // ビジュアルスプライトを物理ボディに追従
+    if (this.visualSprite) {
+      this.visualSprite.setPosition(this.sprite.x, this.sprite.y);
+    }
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
 
     // ステータス異常の更新
@@ -150,6 +174,7 @@ export class Enemy {
     const slowed = this.isSlowed();
     if (slowed && this.sprite.active) {
       this.sprite.setFillStyle(0x8888ff);
+      this.visualSprite?.setTint(0x8888ff);
     }
   }
 
@@ -172,9 +197,10 @@ export class Enemy {
     // 氷結時は青く
     if ((type === 'freeze' || type === 'slow') && this.sprite.active) {
       this.sprite.setFillStyle(0x88ccff);
+      this.visualSprite?.setTint(0x88ccff);
     }
-    if (type === 'poison' && this.sprite.active) this.sprite.setFillStyle(0x88ff44);
-    if (type === 'burn'   && this.sprite.active) this.sprite.setFillStyle(0xff6600);
+    if (type === 'poison' && this.sprite.active) { this.sprite.setFillStyle(0x88ff44); this.visualSprite?.setTint(0x88ff44); }
+    if (type === 'burn'   && this.sprite.active) { this.sprite.setFillStyle(0xff6600); this.visualSprite?.setTint(0xff6600); }
   }
 
   private updateMove(body: Phaser.Physics.Arcade.Body, delta: number): void {
@@ -316,8 +342,9 @@ export class Enemy {
   takeDamage(amount: number, fromDot: boolean = false): void {
     this.hp -= amount;
     if (!fromDot && this.sprite.active) {
+      const target = this.visualSprite ?? this.sprite;
       this.scene.tweens.add({
-        targets: this.sprite,
+        targets: target,
         alpha: { from: 0.3, to: 1 },
         duration: 80,
       });
@@ -335,6 +362,7 @@ export class Enemy {
       targets: burst, alpha: 0, scaleX: 3, scaleY: 3, duration: 300,
       onComplete: () => burst.destroy(),
     });
+    this.visualSprite?.destroy();
     this.sprite.destroy();
   }
 }
