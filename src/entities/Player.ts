@@ -170,7 +170,7 @@ export class Player {
       this.jumpKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
 
-    // バーチャルジョイスティック（タッチデバイスのみ表示）
+    // バーチャルジョイスティック＋ジャンプボタン（タッチデバイスのみ）
     const isTouchDevice = scene.sys.game.device.input.touch;
     if (isTouchDevice) {
       this.joystickBase = scene.add.circle(0, 0, this.JOYSTICK_R, 0xffffff, 0.08)
@@ -179,8 +179,28 @@ export class Player {
       this.joystickKnob = scene.add.circle(0, 0, 24, 0xffffff, 0.55)
         .setDepth(201).setVisible(false);
 
+      const bx = scene.scale.width - 75;
+      const by = scene.scale.height - 110;
+      this.jumpBtn = scene.add.circle(bx, by, 42, 0x4488ff, 0.65).setDepth(200);
+      this.jumpBtnText = scene.add.text(bx, by, '↑', {
+        fontSize: '26px', color: '#ffffff', fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(201);
+
+      // マルチタッチ対応: ポインターIDを追跡してジョイスティックとジャンプを独立させる
+      let joystickPointerId = -1;
+      const jumpBtnX = bx, jumpBtnY = by, jumpBtnR = 42;
+
       scene.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-        if (p.y < 70 || p.x > scene.scale.width * 0.55) return; // 左55%のみ
+        const distToJump = Math.hypot(p.x - jumpBtnX, p.y - jumpBtnY);
+        if (distToJump <= jumpBtnR + 10) {
+          // ジャンプボタン領域
+          this.tryJump();
+          return;
+        }
+        // ジョイスティック領域（左55%・上部HUD除く）
+        if (p.y < 70 || p.x > scene.scale.width * 0.55) return;
+        if (joystickPointerId !== -1) return; // 既に別の指がジョイスティックを操作中
+        joystickPointerId = p.id;
         this.joystickBaseX = p.x;
         this.joystickBaseY = p.y;
         this.joystickBase!.setPosition(p.x, p.y).setVisible(true);
@@ -190,8 +210,9 @@ export class Player {
         this.joystickRing!.strokeCircle(p.x, p.y, this.JOYSTICK_R);
         this.joystickActive = true;
       });
+
       scene.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-        if (!this.joystickActive || !p.isDown) return;
+        if (!this.joystickActive || p.id !== joystickPointerId) return;
         const dx = p.x - this.joystickBaseX;
         const dy = p.y - this.joystickBaseY;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -203,24 +224,17 @@ export class Player {
         );
         this.joystickDx = dist > 8 ? dx / Math.max(dist, 1) : 0;
       });
-      scene.input.on('pointerup', () => {
+
+      scene.input.on('pointerup', (p: Phaser.Input.Pointer) => {
+        // ジョイスティック担当の指が離れた時のみリセット
+        if (p.id !== joystickPointerId) return;
+        joystickPointerId = -1;
         this.joystickActive = false;
         this.joystickDx = 0;
         this.joystickBase!.setVisible(false);
         this.joystickKnob!.setVisible(false);
         this.joystickRing!.clear();
       });
-    }
-
-    // ジャンプボタン（タッチデバイスのみ・右下）
-    if (isTouchDevice) {
-      const bx = scene.scale.width - 75;
-      const by = scene.scale.height - 110;
-      this.jumpBtn = scene.add.circle(bx, by, 42, 0x4488ff, 0.65).setDepth(200).setInteractive();
-      this.jumpBtnText = scene.add.text(bx, by, '↑', {
-        fontSize: '26px', color: '#ffffff', fontStyle: 'bold',
-      }).setOrigin(0.5).setDepth(201);
-      this.jumpBtn.on('pointerdown', () => this.tryJump());
     }
 
     // シールドバー（HPバーに重ねて表示）

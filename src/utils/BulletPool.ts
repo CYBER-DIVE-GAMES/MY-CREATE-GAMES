@@ -42,7 +42,7 @@ export class BulletPool {
       bullet = scene.add.circle(x, y, radius, color);
       this.group.add(bullet, true);
     } else {
-      bullet.setActive(true).setPosition(x, y);
+      bullet.setActive(true).setVisible(true).setPosition(x, y);
       bullet.setRadius(radius);
       bullet.setFillStyle(color);
     }

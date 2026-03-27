@@ -50,9 +50,16 @@ export class BootScene extends Phaser.Scene {
 
     // 敵スプライトシート（4フレーム × 48×48px）
     const enemyFrame = { frameWidth: 48, frameHeight: 48 };
-    this.load.spritesheet('kitunebi_sheet', 'assets/images/kitunebi_sheet.png', enemyFrame);
-    this.load.spritesheet('musha_sheet',    'assets/images/musha_sheet.png',    enemyFrame);
-    this.load.spritesheet('otome_sheet',    'assets/images/otome_sheet.png',    enemyFrame);
+    this.load.spritesheet('kitunebi_sheet',     'assets/images/kitunebi_sheet.png',     enemyFrame);
+    this.load.spritesheet('musha_sheet',        'assets/images/musha_sheet.png',        enemyFrame);
+    this.load.spritesheet('otome_sheet',        'assets/images/otome_sheet.png',        enemyFrame);
+    this.load.spritesheet('tourou_sheet',       'assets/images/tourou_sheet.png',       enemyFrame);
+    this.load.spritesheet('orochi_sheet',       'assets/images/orochi_sheet.png',       enemyFrame);
+    this.load.spritesheet('me_sheet',           'assets/images/me_sheet.png',           enemyFrame);
+    this.load.spritesheet('odoriningyou_sheet', 'assets/images/odoriningyou_sheet.png', enemyFrame);
+    this.load.spritesheet('kagekumo_sheet',     'assets/images/kagekumo_sheet.png',     enemyFrame);
+    this.load.spritesheet('chizakura_sheet',    'assets/images/chizakura_sheet.png',    enemyFrame);
+    this.load.spritesheet('monban_sheet',       'assets/images/monban_sheet.png',       enemyFrame);
   }
 
   create(): void {
