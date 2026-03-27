@@ -389,7 +389,6 @@ export class WaveSystem {
   private triggerEvent(event: WaveEvent): void {
     if (event.type === 'wave') {
       const scale = this.getScaleFactor();
-      const W = this.scene.scale.width;
       for (const def of event.enemies) {
         const base = ENEMY_CONFIGS[def.key];
         const cfg: EnemyConfig = {
