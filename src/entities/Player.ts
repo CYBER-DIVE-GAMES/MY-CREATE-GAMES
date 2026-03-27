@@ -70,7 +70,7 @@ export const BASE_PLAYER_STATS: PlayerStats = {
 
 export class Player {
   private scene: Phaser.Scene;
-  readonly sprite: Phaser.GameObjects.Container;
+  readonly sprite: Phaser.GameObjects.Sprite;
   private body!: Phaser.Physics.Arcade.Body;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasdKeys!: { A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
@@ -102,6 +102,9 @@ export class Player {
   // ラッシュ
   rushTimer: number = 0;
 
+  // アニメーション用（移動中かどうか）
+  private isMovingFlag: boolean = false;
+
   // シールドバー（HUD側でHP管理するためシールドのみ残す）
   private shieldBar: Phaser.GameObjects.Rectangle;
 
@@ -110,21 +113,46 @@ export class Player {
     this.pool = pool;
     this.stats = { ...BASE_PLAYER_STATS };
 
-    // スプライト（プログラム描画）
-    const bodyRect = scene.add.rectangle(0, 0, 28, 36, 0xddddff);
-    const head     = scene.add.circle(0, -22, 12, 0xffeedd);
-    const sword    = scene.add.rectangle(18, -5, 6, 28, 0x88aaff);
-    const ear1     = scene.add.triangle(-6, -32, -8, 0, 8, 0, 0, -14, 0xddddff);
-    const ear2     = scene.add.triangle( 6, -32, -8, 0, 8, 0, 0, -14, 0xddddff);
-
-    this.sprite = scene.add.container(270, 880, [ear1, ear2, bodyRect, head, sword]);
-    this.sprite.setDepth(10);
+    // スプライト（画像）
+    this.sprite = scene.add.sprite(270, 880, 'player', 0);
+    this.sprite.setDepth(10).setScale(1.5);
 
     scene.physics.add.existing(this.sprite);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
     this.body.setCollideWorldBounds(true);
-    this.body.setSize(28, 36);
-    this.body.setOffset(-14, -18);
+    this.body.setSize(22, 30);
+    this.body.setOffset(13, 9);
+
+    // アニメーション定義（重複作成を防ぐ）
+    if (!scene.anims.exists('player_idle')) {
+      scene.anims.create({
+        key: 'player_idle',
+        frames: scene.anims.generateFrameNumbers('player', { start: 0, end: 2 }),
+        frameRate: 6, repeat: -1,
+      });
+      scene.anims.create({
+        key: 'player_walk',
+        frames: scene.anims.generateFrameNumbers('player', { start: 6, end: 8 }),
+        frameRate: 8, repeat: -1,
+      });
+      scene.anims.create({
+        key: 'player_shoot',
+        frames: scene.anims.generateFrameNumbers('player', { start: 3, end: 5 }),
+        frameRate: 15, repeat: 0,
+      });
+      scene.anims.create({
+        key: 'player_special',
+        frames: scene.anims.generateFrameNumbers('player', { start: 9, end: 11 }),
+        frameRate: 12, repeat: 0,
+      });
+    }
+
+    this.sprite.play('player_idle');
+    this.sprite.on('animationcomplete', (anim: { key: string }) => {
+      if (anim.key === 'player_shoot' || anim.key === 'player_special') {
+        this.sprite.play(this.isMovingFlag ? 'player_walk' : 'player_idle');
+      }
+    });
 
     // キーボード
     if (scene.input.keyboard) {
@@ -196,6 +224,17 @@ export class Player {
     }
     this.body.setVelocityY(0);
 
+    // アニメーション切り替え
+    const moving = left || right;
+    this.sprite.setFlipX(left && !right);
+    if (moving !== this.isMovingFlag) {
+      this.isMovingFlag = moving;
+      const cur = this.sprite.anims.currentAnim?.key ?? '';
+      if (cur !== 'player_shoot' && cur !== 'player_special') {
+        this.sprite.play(moving ? 'player_walk' : 'player_idle');
+      }
+    }
+
     // 自動射撃
     if (time - this.lastFireTime >= this.stats.fireInterval) {
       this.firePlayerBullet();
@@ -238,6 +277,9 @@ export class Player {
   }
 
   firePlayerBullet(): void {
+    // 射撃アニメーション
+    this.sprite.play('player_shoot', true);
+
     const isCrit = Math.random() < this.stats.critChance;
     const baseDmg = isCrit
       ? Math.floor(this.stats.damage * this.stats.critMultiplier)

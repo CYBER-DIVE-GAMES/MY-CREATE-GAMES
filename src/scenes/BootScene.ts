@@ -28,7 +28,11 @@ export class BootScene extends Phaser.Scene {
       color: '#ffffff',
     }).setOrigin(0.5);
 
-    // フェーズ1では全てプログラムで描画するためアセットなし
+    // プレイヤースプライトシート（48x48 × 3列4行 = 12フレーム）
+    this.load.spritesheet('player', 'assets/images/player.png', {
+      frameWidth: 48,
+      frameHeight: 48,
+    });
   }
 
   create(): void {
