@@ -120,13 +120,13 @@ export class Player {
 
     // スプライト（画像）
     this.sprite = scene.add.sprite(270, 780, 'player', 0);
-    this.sprite.setDepth(10).setScale(2.5);
+    this.sprite.setDepth(10).setScale(1.25);
 
     scene.physics.add.existing(this.sprite);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
     this.body.setCollideWorldBounds(true);
-    this.body.setSize(18, 26);
-    this.body.setOffset(15, 11);
+    this.body.setSize(36, 52);
+    this.body.setOffset(30, 22);
     this.body.setGravityY(1400);
 
     // アニメーション定義（重複作成を防ぐ）
@@ -299,7 +299,7 @@ export class Player {
 
   tryJump(): void {
     if (this.body.blocked.down) {
-      this.body.setVelocityY(-400);
+      this.body.setVelocityY(-480);
       this.sprite.play('player_special', true);
     }
   }

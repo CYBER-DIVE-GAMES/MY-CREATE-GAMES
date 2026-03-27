@@ -28,10 +28,10 @@ export class BootScene extends Phaser.Scene {
       color: '#ffffff',
     }).setOrigin(0.5);
 
-    // プレイヤースプライトシート（48x48 × 3列4行 = 12フレーム）
+    // プレイヤースプライトシート（96x96 × 3列4行 = 12フレーム）
     this.load.spritesheet('player', 'assets/images/player.png', {
-      frameWidth: 48,
-      frameHeight: 48,
+      frameWidth: 96,
+      frameHeight: 96,
     });
     // ステージ背景
     this.load.image('haikei', 'assets/images/haikei.png');

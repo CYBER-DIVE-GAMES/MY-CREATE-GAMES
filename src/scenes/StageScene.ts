@@ -98,6 +98,8 @@ export class StageScene extends Phaser.Scene {
 
     this.player = new Player(this, this.playerPool);
     this.player.sprite.setData('isPlayer', true);
+    // 敵のfindPlayer()が高速参照できるようシーンデータに登録
+    this.data.set('playerSprite', this.player.sprite);
 
     // プレイヤーと地面の衝突
     this.physics.add.collider(this.player.sprite, this.groundPlatform);
@@ -296,9 +298,10 @@ export class StageScene extends Phaser.Scene {
         if (!enemy.isAlive) continue;
         const dist = Phaser.Math.Distance.Between(orb.x, orb.y, enemy.sprite.x, enemy.sprite.y);
         if (dist < 8 + enemy.config.size) {
+          const ox = enemy.sprite.x, oy = enemy.sprite.y;
           enemy.takeDamage(this.player.stats.damage * 0.5);
           this.applyBulletEffects(enemy, this.player.stats);
-          if (!enemy.isAlive) this.onEnemyKilled(enemy.sprite.x, enemy.sprite.y, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
+          if (!enemy.isAlive) this.onEnemyKilled(ox, oy, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
         }
       }
     });
@@ -322,9 +325,10 @@ export class StageScene extends Phaser.Scene {
         // 電撃ビジュアル
         const line = this.add.graphics();
         line.lineStyle(2, 0xffff44, 0.8);
-        line.strokeLineShape(new Phaser.Geom.Line(px, py, enemy.sprite.x, enemy.sprite.y));
+        const lx = enemy.sprite.x, ly = enemy.sprite.y;
+        line.strokeLineShape(new Phaser.Geom.Line(px, py, lx, ly));
         this.time.delayedCall(150, () => line.destroy());
-        if (!enemy.isAlive) this.onEnemyKilled(enemy.sprite.x, enemy.sprite.y, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
+        if (!enemy.isAlive) this.onEnemyKilled(lx, ly, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
       }
     }
   }
@@ -358,9 +362,10 @@ export class StageScene extends Phaser.Scene {
     for (const enemy of this.waveSystem.enemies) {
       if (!enemy.isAlive) continue;
       if (Math.abs(enemy.sprite.x - px) < width / 2 + enemy.config.size) {
+        const lzx = enemy.sprite.x, lzy = enemy.sprite.y;
         enemy.takeDamage(stats.damage * 8);
-        if (stats.iceLevel > 0) enemy.applyStatus('freeze', 1000, stats.iceLevel); // レーザー霜柱シナジー
-        if (!enemy.isAlive) this.onEnemyKilled(enemy.sprite.x, enemy.sprite.y, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
+        if (stats.iceLevel > 0) enemy.applyStatus('freeze', 1000, stats.iceLevel);
+        if (!enemy.isAlive) this.onEnemyKilled(lzx, lzy, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
       }
     }
     // ボスにもダメージ
@@ -410,6 +415,8 @@ export class StageScene extends Phaser.Scene {
         const dist = Phaser.Math.Distance.Between(bullet.x, bullet.y, enemy.sprite.x, enemy.sprite.y);
         if (dist < bullet.radius + enemy.config.size * stats.hitboxScale) {
           const dmg = bullet.getData('damage') as number;
+          // sprite破棄前に座標を保存
+          const ex = enemy.sprite.x, ey = enemy.sprite.y;
           enemy.takeDamage(dmg);
           this.applyBulletEffects(enemy, stats);
 
@@ -423,7 +430,7 @@ export class StageScene extends Phaser.Scene {
           }
 
           if (!enemy.isAlive) {
-            this.onEnemyKilled(enemy.sprite.x, enemy.sprite.y, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
+            this.onEnemyKilled(ex, ey, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
           }
 
           // 爆発（A2）
@@ -531,8 +538,9 @@ export class StageScene extends Phaser.Scene {
     for (const enemy of this.waveSystem.enemies) {
       if (!enemy.isAlive) continue;
       if (Phaser.Math.Distance.Between(x, y, enemy.sprite.x, enemy.sprite.y) < radius + enemy.config.size) {
+        const ex2 = enemy.sprite.x, ey2 = enemy.sprite.y;
         enemy.takeDamage(dmg);
-        if (!enemy.isAlive) this.onEnemyKilled(enemy.sprite.x, enemy.sprite.y, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
+        if (!enemy.isAlive) this.onEnemyKilled(ex2, ey2, enemy.config.xp, enemy.config.youkakuDrop, enemy.config.youkakuChance);
       }
     }
   }
@@ -633,8 +641,9 @@ export class StageScene extends Phaser.Scene {
   }
 
   private updateSynergyHUD(): void {
+    // スキル取得はレベルアップ時のみ変化するため毎フレーム再生成しない
     const synergies: ActiveSynergy[] = SynergyCalculator.getActive(this.skillSystem);
-    // シナジーテキストを再描画
+    if (synergies.length === this.synergyTexts.length) return;
     this.synergyTexts.forEach((t) => t.destroy());
     this.synergyTexts = [];
     synergies.forEach((syn, i) => {

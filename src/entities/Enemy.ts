@@ -328,14 +328,9 @@ export class Enemy {
   }
 
   private findPlayer(): { x: number; y: number } | null {
-    const objs = this.scene.children.list.filter(
-      (c) => (c as Phaser.GameObjects.GameObject).getData &&
-              (c as Phaser.GameObjects.GameObject).getData('isPlayer')
-    );
-    if (objs.length > 0) {
-      const c = objs[0] as Phaser.GameObjects.Container;
-      return { x: c.x, y: c.y };
-    }
+    // シーンデータに登録されたプレイヤースプライトを直接参照（O(1)）
+    const ps = this.scene.data?.get('playerSprite') as Phaser.GameObjects.Sprite | undefined;
+    if (ps?.active) return { x: ps.x, y: ps.y };
     return null;
   }
 
