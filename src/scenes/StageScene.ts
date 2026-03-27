@@ -19,6 +19,7 @@ export class StageScene extends Phaser.Scene {
   private skillSystem!: SkillSystem;
   private obstacleSystem!: ObstacleSystem;
   private boss: Boss | null = null;
+  private bgm?: Phaser.Sound.BaseSound;
 
   // HUD
   private hpBar!: Phaser.GameObjects.Rectangle;
@@ -110,6 +111,11 @@ export class StageScene extends Phaser.Scene {
     this.obstacleSystem = new ObstacleSystem(this);
 
     this.buildHUD();
+
+    // BGM再生（ループ）
+    this.sound.stopAll();
+    this.bgm = this.sound.add('bgm_stage1', { loop: true, volume: 0.6 });
+    this.bgm.play();
   }
 
   // ─── HUD ─────────────────────────────────────────────
@@ -738,6 +744,7 @@ export class StageScene extends Phaser.Scene {
   // ─── ステージクリア ───────────────────────────────────
   private onStageClear(): void {
     this.stageCleared = true;
+    this.bgm?.stop();
     const clearBonus = 50;
     const totalYoukaku = this.youkakuThisRun + clearBonus;
     SaveSystem.addYoukaku(totalYoukaku);
@@ -758,6 +765,7 @@ export class StageScene extends Phaser.Scene {
   private onGameOver(): void {
     if (this.paused) return;
     this.paused = true;
+    this.bgm?.stop();
     this.orbitalBullets.forEach((b) => b.destroy());
     this.orbitalBullets = [];
 
