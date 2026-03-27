@@ -41,6 +41,12 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('bgm_midboss',  'assets/audio/bgm_midboss.mp3');
     this.load.audio('bgm_boss',     'assets/audio/bgm_boss.mp3');
 
+    // SE
+    this.load.audio('se_shoot', 'assets/audio/se_shoot.wav');
+
+    // 弾エフェクト（zangeki.pngから抽出した斬撃スプライト）
+    this.load.image('zangeki', 'assets/images/zangeki_bullet.png');
+
     // 敵スプライトシート（4フレーム × 48×48px）
     const enemyFrame = { frameWidth: 48, frameHeight: 48 };
     this.load.spritesheet('kitunebi_sheet', 'assets/images/kitunebi_sheet.png', enemyFrame);

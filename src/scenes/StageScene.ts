@@ -682,6 +682,7 @@ export class StageScene extends Phaser.Scene {
       onComplete: () => lvText.destroy() });
 
     this.paused = true;
+    this.physics.world.pause();  // 敵・弾すべての物理を停止
     this.time.delayedCall(600, () => {
       const choiceCount = this.player.stats.skillChoiceCount;
       const cards = this.skillSystem.drawCards(choiceCount);
@@ -690,10 +691,14 @@ export class StageScene extends Phaser.Scene {
           cards,
           skillSystem: this.skillSystem,
           playerStats: this.player.stats,
-          onClose: () => { this.paused = false; },
+          onClose: () => {
+            this.paused = false;
+            this.physics.world.resume();  // 選択後に再開
+          },
         });
       } else {
         this.paused = false;
+        this.physics.world.resume();
       }
     });
   }

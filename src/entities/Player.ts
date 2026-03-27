@@ -308,34 +308,39 @@ export class Player {
     // 射撃アニメーション
     this.sprite.play('player_shoot', true);
 
+    // 発射音（音量控えめ）
+    if (this.scene.sound.get('se_shoot') || this.scene.cache.audio.exists('se_shoot')) {
+      this.scene.sound.play('se_shoot', { volume: 0.35 });
+    }
+
     const isCrit = Math.random() < this.stats.critChance;
     const baseDmg = isCrit
       ? Math.floor(this.stats.damage * this.stats.critMultiplier)
       : this.stats.damage;
     const dmg = this.rushTimer > 0 ? Math.floor(baseDmg * 1.5) : baseDmg;
-    const color  = 0x88ccff; // 弾色統一（クリット時も同じ見た目）
+    const color  = 0x88ccff;
     const radius = 5;
 
     const sx = this.sprite.x;
     const sy = this.sprite.y - 20;
 
     if (this.stats.scatterCount > 1) {
-      // 散弾（C10）
+      // 散弾（C10）: 中央弾のみ斬撃ビジュアル
       const half = Math.floor(this.stats.scatterCount / 2);
       for (let i = -half; i <= half; i++) {
         const angle = -Math.PI / 2 + i * 0.18;
-        const critThis = i === 0 && this.stats.scatterCount >= 7; // 中央弾クリ確定（Lv3）
+        const critThis = i === 0 && this.stats.scatterCount >= 7;
         const d = critThis ? Math.floor(this.stats.damage * this.stats.critMultiplier) : dmg;
-        this.pool.fire(this.scene, sx, sy,
-          Math.cos(angle) * this.stats.bulletSpeed,
-          Math.sin(angle) * this.stats.bulletSpeed,
-          d, 'player', color, radius);
+        const vx = Math.cos(angle) * this.stats.bulletSpeed;
+        const vy = Math.sin(angle) * this.stats.bulletSpeed;
+        this.pool.fire(this.scene, sx, sy, vx, vy, d, 'player', color, radius, i === 0);
       }
     } else {
-      this.pool.fire(this.scene, sx, sy, 0, -this.stats.bulletSpeed, dmg, 'player', color, radius);
+      // 単発: 斬撃ビジュアル使用
+      this.pool.fire(this.scene, sx, sy, 0, -this.stats.bulletSpeed, dmg, 'player', color, radius, true);
     }
 
-    // サイドガン（C1）
+    // サイドガン（C1）: 通常丸弾
     for (let i = 0; i < this.stats.sideGunCount; i++) {
       const offset = (i + 1) * 30;
       this.pool.fire(this.scene, sx - offset, sy, -20, -this.stats.bulletSpeed * 0.9, dmg, 'player', 0x88eecc, 4);
