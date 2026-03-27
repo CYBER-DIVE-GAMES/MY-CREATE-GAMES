@@ -299,7 +299,7 @@ export class Player {
 
   tryJump(): void {
     if (this.body.blocked.down) {
-      this.body.setVelocityY(-720);
+      this.body.setVelocityY(-400);
       this.sprite.play('player_special', true);
     }
   }
