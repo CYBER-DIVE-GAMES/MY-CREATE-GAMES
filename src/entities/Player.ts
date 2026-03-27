@@ -308,11 +308,6 @@ export class Player {
     // 射撃アニメーション
     this.sprite.play('player_shoot', true);
 
-    // 発射音（音量控えめ）
-    if (this.scene.sound.get('se_shoot') || this.scene.cache.audio.exists('se_shoot')) {
-      this.scene.sound.play('se_shoot', { volume: 0.35 });
-    }
-
     const isCrit = Math.random() < this.stats.critChance;
     const baseDmg = isCrit
       ? Math.floor(this.stats.damage * this.stats.critMultiplier)

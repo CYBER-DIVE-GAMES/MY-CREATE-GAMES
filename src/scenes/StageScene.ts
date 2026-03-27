@@ -424,6 +424,7 @@ export class StageScene extends Phaser.Scene {
           // sprite破棄前に座標を保存
           const ex = enemy.sprite.x, ey = enemy.sprite.y;
           enemy.takeDamage(dmg);
+          this.sound.play('se_hit_enemy', { volume: 0.25 });
           this.applyBulletEffects(enemy, stats);
 
           // 吸血（B5）
@@ -495,6 +496,7 @@ export class StageScene extends Phaser.Scene {
       if (dist < bullet.radius + 10 * stats.hitboxScale) {
         const dmg = bullet.getData('damage') as number;
         this.player.takeDamage(dmg, time);
+        this.sound.play('se_hit_player', { volume: 0.3 });
         this.enemyPool.killBullet(bullet);
         this.cameras.main.flash(100, 255, 0, 0, false);
       }

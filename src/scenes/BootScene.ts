@@ -42,7 +42,8 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('bgm_boss',     'assets/audio/bgm_boss.mp3');
 
     // SE
-    this.load.audio('se_shoot', 'assets/audio/se_shoot.wav');
+    this.load.audio('se_hit_enemy',  'assets/audio/se_hit_enemy.wav');
+    this.load.audio('se_hit_player', 'assets/audio/se_hit_player.wav');
 
     // 弾エフェクト（zangeki.pngから抽出した斬撃スプライト）
     this.load.image('zangeki', 'assets/images/zangeki_bullet.png');
