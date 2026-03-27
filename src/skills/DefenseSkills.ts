@@ -74,11 +74,4 @@ export const DEFENSE_SKILLS: SkillDef[] = [
     description: (lv) => ['敵弾10%確率で吸収', '20%で吸収', '30%+吸収弾をHPに変換'][lv - 1],
     apply: (stats, lv) => { stats.barrierLevel = lv; },
   },
-  {
-    id: 'B10_no_instakill',
-    name: '即死耐性',
-    category: 'B', color: 0x4488ff, maxLevel: 3,
-    description: (lv) => ['一撃死ダメを最大HP50%に制限', '70%制限', '80%制限+被ダメ軽減'][lv - 1],
-    apply: (stats, lv) => { stats.maxSingleHitRatio = [0.5, 0.7, 0.8][lv - 1]; },
-  },
 ];

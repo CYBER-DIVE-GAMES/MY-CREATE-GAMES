@@ -45,13 +45,4 @@ export const GOLD_SKILLS: SkillDef[] = [
     },
     isUnlocked: (a) => a.has('A9_crit_rate') && a.has('C4_discharge'),
   },
-  {
-    id: 'G5_reincarnation',
-    name: '廻転輪廻',
-    category: 'G', color: 0xffcc00, maxLevel: 1,
-    description: (_lv) => '死亡時に現ランLvを引き継いで即リスタート（1回限り）',
-    apply: (stats, _lv) => {
-      stats.deathPreventLevel = Math.max(stats.deathPreventLevel, 2);
-    },
-  },
 ];

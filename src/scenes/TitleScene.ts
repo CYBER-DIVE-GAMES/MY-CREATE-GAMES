@@ -158,7 +158,7 @@ export class TitleScene extends Phaser.Scene {
     panelG.strokeRect(0, 130, width, panelH);
 
     // タイトルロゴ
-    this.add.text(width / 2, 200, '天穿閃乱', {
+    this.add.text(width / 2, 200, '妖狐討魔録', {
       fontSize: '64px',
       color: '#ffd700',
       fontStyle: 'bold',
@@ -166,7 +166,7 @@ export class TitleScene extends Phaser.Scene {
       strokeThickness: 5,
     }).setOrigin(0.5).setDepth(3);
 
-    this.add.text(width / 2, 285, '～ Heavenpiercer ～', {
+    this.add.text(width / 2, 285, '～ Youko Touma-roku ～', {
       fontSize: '22px',
       color: '#ccbbff',
     }).setOrigin(0.5).setDepth(3);

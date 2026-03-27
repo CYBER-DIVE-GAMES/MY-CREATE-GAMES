@@ -50,6 +50,10 @@ export class StageScene extends Phaser.Scene {
   // XP ジェム
   private xpGems: Phaser.GameObjects.Arc[] = [];
 
+  // 妖核ジェム（地面落下・近接回収）
+  private youkakuGems: { g: Phaser.GameObjects.Graphics; x: number; y: number; amount: number }[] = [];
+  private groundY: number = 0;
+
   // 地面
   private groundPlatform!: Phaser.GameObjects.Rectangle;
 
@@ -73,6 +77,7 @@ export class StageScene extends Phaser.Scene {
     this.activeLaser = null;
     this.orbitalBullets = [];
     this.xpGems = [];
+    this.youkakuGems = [];
     this.synergyTexts = [];
     this.pendingLevelUps = [];
     this.levelUpInProgress = false;
@@ -95,6 +100,7 @@ export class StageScene extends Phaser.Scene {
 
     // 地面プラットフォーム（透明・haikei.pngの地面に合わせてGROUND_Yを調整）
     const GROUND_Y = Math.floor(height * 0.88); // 約845px — 背景の地面位置に合わせて調整
+    this.groundY = GROUND_Y;
     this.groundPlatform = this.add.rectangle(width / 2, GROUND_Y, width, 8, 0x000000, 0);
     this.physics.add.existing(this.groundPlatform, true);
 
@@ -606,26 +612,59 @@ export class StageScene extends Phaser.Scene {
 
   // ─── 敵撃破処理 ───────────────────────────────────────
   private onEnemyKilled(x: number, y: number, xp: number, youkakuDrop: number, youkakuChance: number): void {
-    // XP ジェムを配置
-    const gem = this.add.circle(x, y, 7, 0x00ff88).setDepth(4).setStrokeStyle(2, 0xffffff, 0.6);
+    // XP ジェム（緑ダイヤ形）
+    const xpG = this.add.graphics().setDepth(4);
+    const drawXpGem = (gx: number, gy: number) => {
+      xpG.clear();
+      // 外枠グロー
+      xpG.fillStyle(0x00ff88, 0.3);
+      xpG.fillTriangle(gx, gy - 11, gx - 8, gy + 1, gx + 8, gy + 1);
+      xpG.fillTriangle(gx - 8, gy + 1, gx + 8, gy + 1, gx, gy + 11);
+      // 本体（上半分: 明るい緑）
+      xpG.fillStyle(0x44ff99, 1);
+      xpG.fillTriangle(gx, gy - 9, gx - 6, gy + 1, gx + 6, gy + 1);
+      // 本体（下半分: やや暗い緑）
+      xpG.fillStyle(0x00cc66, 1);
+      xpG.fillTriangle(gx - 6, gy + 1, gx + 6, gy + 1, gx, gy + 9);
+      // ハイライト
+      xpG.fillStyle(0xaaffcc, 0.85);
+      xpG.fillTriangle(gx - 1, gy - 7, gx + 3, gy - 2, gx - 2, gy + 2);
+    };
+    drawXpGem(x, y);
+    // Arc（透明）で当たり判定・座標追跡用
+    const gem = this.add.circle(x, y, 8, 0x000000, 0).setDepth(4);
     gem.setData('xp', xp);
+    gem.setData('xpG', xpG);
     this.xpGems.push(gem);
 
     // 磁石Lv3は即回収
     if (this.player.stats.xpMagnetLevel >= 3) {
       this.xpSystem.addXP(xp);
+      xpG.destroy();
       gem.destroy();
       this.xpGems = this.xpGems.filter((g) => g.active);
     } else {
-      // 真っ直ぐ下に落下
+      // 地面まで落下
+      const targetY = this.groundY - 10;
       this.tweens.add({
         targets: gem,
-        y: this.scale.height - 100,
-        duration: 1800,
-        ease: 'Linear',
+        y: targetY,
+        duration: 1400,
+        ease: 'Quad.easeIn',
+        onUpdate: () => drawXpGem(gem.x, gem.y),
+        onComplete: () => {
+          // 着地パルス
+          this.tweens.add({
+            targets: { t: 0 }, t: 1, duration: 200,
+            onUpdate: (tw) => { const sc = 1 + tw.progress * 0.4; xpG.setScale(sc, 1 / sc); },
+            onComplete: () => xpG.setScale(1, 1),
+          });
+        },
       });
-      this.time.delayedCall(8000, () => {
-        if (gem.active) { gem.destroy(); }
+      this.time.delayedCall(12000, () => {
+        if (gem.active) {
+          this.tweens.add({ targets: xpG, alpha: 0, duration: 400, onComplete: () => { xpG.destroy(); gem.destroy(); } });
+        }
         this.xpGems = this.xpGems.filter((g) => g.active);
       });
     }
@@ -638,48 +677,51 @@ export class StageScene extends Phaser.Scene {
     const stats = this.player.stats;
     const finalAmount = Math.ceil(amount * (1 + stats.youkakuBonusRate));
     if (Math.random() > chance * (1 + stats.youkakuBonusRate * 0.5)) return;
-    this.youkakuThisRun += finalAmount;
 
-    // 宝石風の落下エフェクト
+    // 紫宝石グラフィック（落下後に地面で拾う）
     const g = this.add.graphics().setDepth(5);
-    const drawGem = (gx: number, gy: number, scale: number, alpha: number) => {
+    const landX = x + (Math.random() - 0.5) * 30;
+    const landY = this.groundY - 10;
+
+    const drawGem = (gx: number, gy: number) => {
       g.clear();
-      g.fillStyle(0xdd88ff, alpha);
-      g.fillTriangle(gx, gy - 10*scale, gx - 7*scale, gy + 4*scale, gx + 7*scale, gy + 4*scale);
-      g.fillStyle(0xaa44cc, alpha);
-      g.fillTriangle(gx - 7*scale, gy + 4*scale, gx + 7*scale, gy + 4*scale, gx, gy + 10*scale);
-      g.fillStyle(0xffffff, alpha * 0.6);
-      g.fillTriangle(gx - 2*scale, gy - 8*scale, gx + 4*scale, gy - 4*scale, gx - 2*scale, gy + 2*scale);
+      g.fillStyle(0xdd88ff, 1);
+      g.fillTriangle(gx, gy - 10, gx - 7, gy + 4, gx + 7, gy + 4);
+      g.fillStyle(0xaa44cc, 1);
+      g.fillTriangle(gx - 7, gy + 4, gx + 7, gy + 4, gx, gy + 10);
+      g.fillStyle(0xffffff, 0.6);
+      g.fillTriangle(gx - 2, gy - 8, gx + 4, gy - 4, gx - 2, gy + 2);
     };
-    drawGem(x, y, 1, 1);
+    drawGem(x, y);
 
     // 落下アニメーション
-    const targetY = this.scale.height - 80;
     const duration = 1200 + Math.random() * 400;
-    const tweenObj = { x: x + (Math.random() - 0.5) * 30, y };
+    const tweenObj = { x: landX, y };
     this.tweens.add({
       targets: tweenObj,
-      y: targetY,
+      y: landY,
       duration,
       ease: 'Quad.easeIn',
       onUpdate: () => {
-        drawGem(tweenObj.x, tweenObj.y, 1, 1);
+        drawGem(tweenObj.x, tweenObj.y);
       },
       onComplete: () => {
-        // 着地フラッシュ
-        this.tweens.add({
-          targets: tweenObj,
-          duration: 300,
-          onUpdate: (tw) => {
-            const prog = tw.progress;
-            drawGem(tweenObj.x, tweenObj.y, 1 + prog * 0.3, 1 - prog);
-          },
-          onComplete: () => g.destroy(),
+        // 地面に着地後、拾えるようにyoukakuGemsに登録
+        drawGem(landX, landY);
+        this.youkakuGems.push({ g, x: landX, y: landY, amount: finalAmount });
+
+        // 12秒後に消える
+        this.time.delayedCall(12000, () => {
+          if (!g.active) return;
+          this.tweens.add({
+            targets: g,
+            alpha: 0,
+            duration: 600,
+            onComplete: () => g.destroy(),
+          });
         });
       },
     });
-
-    this.youkakuText.setText(`妖核: ${this.youkakuThisRun}`);
   }
 
   // ─── XP拾い（プレイヤー付近） ─────────────────────────
@@ -715,7 +757,25 @@ export class StageScene extends Phaser.Scene {
       if (!gem.active) return false;
       if (Phaser.Math.Distance.Between(px, py, gem.x, gem.y) < range) {
         this.xpSystem.addXP(gem.getData('xp') as number);
+        (gem.getData('xpG') as Phaser.GameObjects.Graphics | undefined)?.destroy();
         gem.destroy();
+        return false;
+      }
+      return true;
+    });
+
+    // 妖核ジェムの近接回収（地面で拾う）
+    const ykRange = 50;
+    this.youkakuGems = this.youkakuGems.filter((entry) => {
+      if (!entry.g.active) return false;
+      if (Phaser.Math.Distance.Between(px, py, entry.x, entry.y) < ykRange) {
+        this.youkakuThisRun += entry.amount;
+        this.youkakuText.setText(`妖核: ${this.youkakuThisRun}`);
+        // 回収エフェクト
+        this.tweens.add({
+          targets: entry.g, alpha: 0, scaleX: 2, scaleY: 2, y: entry.y - 20,
+          duration: 300, onComplete: () => entry.g.destroy(),
+        });
         return false;
       }
       return true;
