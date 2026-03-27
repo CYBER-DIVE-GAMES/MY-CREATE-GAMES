@@ -348,18 +348,24 @@ export class WaveSystem {
   private elapsed: number = 0; // 秒
   private nextIndex: number = 0;
   private onBoss: (id: string, type: 'miniboss' | 'midboss' | 'boss') => void;
+  private onEnemyKilledCb?: (x: number, y: number, xp: number, youkakuDrop: number, youkakuChance: number) => void;
+  private onDotDamageCb?: (x: number, y: number, amount: number) => void;
 
   enemies: Enemy[] = [];
 
   constructor(
     scene: Phaser.Scene,
     pool: BulletPool,
-    onBoss: (id: string, type: 'miniboss' | 'midboss' | 'boss') => void
+    onBoss: (id: string, type: 'miniboss' | 'midboss' | 'boss') => void,
+    onEnemyKilled?: (x: number, y: number, xp: number, youkakuDrop: number, youkakuChance: number) => void,
+    onDotDamage?: (x: number, y: number, amount: number) => void,
   ) {
     this.scene = scene;
     this.pool  = pool;
     this.schedule = STAGE1_SCHEDULE;
     this.onBoss   = onBoss;
+    this.onEnemyKilledCb = onEnemyKilled;
+    this.onDotDamageCb   = onDotDamage;
   }
 
   update(delta: number): void {
@@ -377,7 +383,13 @@ export class WaveSystem {
     // 死亡済みの敵を除去して更新
     this.enemies = this.enemies.filter((e) => e.isAlive);
     for (const e of this.enemies) {
+      const px = e.sprite.active ? e.sprite.x : 0;
+      const py = e.sprite.active ? e.sprite.y : 0;
       e.update(delta);
+      // DoTによる死亡検出 → ドロップ処理をStageSceneに通知
+      if (!e.isAlive && this.onEnemyKilledCb) {
+        this.onEnemyKilledCb(px, py, e.config.xp, e.config.youkakuDrop, e.config.youkakuChance);
+      }
     }
   }
 
@@ -401,6 +413,7 @@ export class WaveSystem {
           bulletDamage: Math.floor(base.bulletDamage * scale),
         };
         const enemy = new Enemy(this.scene, cfg, this.pool);
+        if (this.onDotDamageCb) enemy.onDotDamage = this.onDotDamageCb;
         this.enemies.push(enemy);
       }
     } else if (event.type === 'miniboss') {

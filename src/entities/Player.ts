@@ -47,6 +47,10 @@ export interface PlayerStats {
   enemySlowRate: number;
   skillChoiceCount: number;
   xpResonanceLevel: number;
+
+  // ─── 永続強化（修行の間） ───
+  dmgTakenReduction: number;  // 被ダメ軽減率 0.0〜1.0
+  xpBonusRate: number;        // XP取得ボーナス率
 }
 
 export const BASE_PLAYER_STATS: PlayerStats = {
@@ -66,6 +70,7 @@ export const BASE_PLAYER_STATS: PlayerStats = {
   xpMagnetLevel: 0, youkakuBonusRate: 0,
   rushLevel: 0, enemySlowRate: 0,
   skillChoiceCount: 3, xpResonanceLevel: 0,
+  dmgTakenReduction: 0, xpBonusRate: 0,
 };
 
 export class Player {
@@ -372,6 +377,11 @@ export class Player {
     // 即死耐性（B10）
     if (this.stats.maxSingleHitRatio < 1.0) {
       amount = Math.min(amount, Math.floor(this.stats.maxHp * this.stats.maxSingleHitRatio));
+    }
+
+    // 被ダメ軽減（修行の間: dmg_reduce）
+    if (this.stats.dmgTakenReduction > 0) {
+      amount = Math.max(1, Math.floor(amount * (1 - this.stats.dmgTakenReduction)));
     }
 
     // シールドで先に吸収（B4）

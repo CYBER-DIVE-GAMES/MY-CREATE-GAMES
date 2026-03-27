@@ -74,6 +74,9 @@ export class Enemy {
 
   isAlive: boolean = true;
 
+  // DoTダメージ通知コールバック（StageSceneがセット）
+  onDotDamage?: (x: number, y: number, amount: number) => void;
+
   constructor(scene: Phaser.Scene, config: EnemyConfig, pool: BulletPool) {
     this.scene = scene;
     this.config = config;
@@ -159,11 +162,15 @@ export class Enemy {
         this.dotTimer = 0;
         if (hasPoison) {
           const lv = this.getStatusLevel('poison');
-          this.takeDamage([3, 6, 10][lv - 1] ?? 3, true);
+          const dmg = [3, 6, 10][lv - 1] ?? 3;
+          if (this.sprite.active) this.onDotDamage?.(this.sprite.x, this.sprite.y, dmg);
+          this.takeDamage(dmg, true);
         }
         if (hasBurn) {
           const lv = this.getStatusLevel('burn');
-          this.takeDamage([4, 7, 12][lv - 1] ?? 4, true);
+          const dmg = [4, 7, 12][lv - 1] ?? 4;
+          if (this.sprite.active) this.onDotDamage?.(this.sprite.x, this.sprite.y, dmg);
+          this.takeDamage(dmg, true);
         }
       }
     } else {

@@ -148,29 +148,6 @@ export class TitleScene extends Phaser.Scene {
       });
     }
 
-    // タイトルパネル
-    const panelH = 200;
-    const panelG = this.add.graphics().setDepth(2);
-    panelG.fillStyle(0x000000, 0.55);
-    panelG.fillRect(0, 130, width, panelH);
-    // 上下の金色ライン
-    panelG.lineStyle(2, 0xffd700, 0.7);
-    panelG.strokeRect(0, 130, width, panelH);
-
-    // タイトルロゴ
-    this.add.text(width / 2, 200, '妖狐討魔録', {
-      fontSize: '64px',
-      color: '#ffd700',
-      fontStyle: 'bold',
-      stroke: '#ff6600',
-      strokeThickness: 5,
-    }).setOrigin(0.5).setDepth(3);
-
-    this.add.text(width / 2, 285, '～ Youko Touma-roku ～', {
-      fontSize: '22px',
-      color: '#ccbbff',
-    }).setOrigin(0.5).setDepth(3);
-
     // 妖核表示
     const youkakuText = this.add.text(width / 2, 380, `妖核：${saveData.youkaku} 個`, {
       fontSize: '20px',

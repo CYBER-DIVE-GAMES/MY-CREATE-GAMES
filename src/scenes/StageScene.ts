@@ -115,9 +115,17 @@ export class StageScene extends Phaser.Scene {
     // プレイヤーと地面の衝突
     this.physics.add.collider(this.player.sprite, this.groundPlatform);
 
+    // 修行の間アップグレードをプレイヤーに適用
+    this.applyPermanentUpgrades();
+
     this.skillSystem  = new SkillSystem();
     this.xpSystem     = new XPSystem((level) => this.onLevelUp(level));
-    this.waveSystem   = new WaveSystem(this, this.enemyPool, (id, type) => this.onBossSpawn(id, type));
+    this.waveSystem   = new WaveSystem(
+      this, this.enemyPool,
+      (id, type) => this.onBossSpawn(id, type),
+      (x, y, xp, yd, yc) => this.onEnemyKilled(x, y, xp, yd, yc),
+      (x, y, dmg) => this.showDamageNumber(x, y, dmg),
+    );
     this.obstacleSystem = new ObstacleSystem(this);
 
     this.buildHUD();
@@ -126,6 +134,59 @@ export class StageScene extends Phaser.Scene {
     this.sound.stopAll();
     this.bgm = this.sound.add('bgm_stage1', { loop: true, volume: 0.6 });
     this.bgm.play();
+  }
+
+  // ─── 永続強化適用（修行の間） ───────────────────────────
+  private applyPermanentUpgrades(): void {
+    const upgrades = SaveSystem.load().upgrades;
+    const stats = this.player.stats;
+    const get = (id: string) => upgrades[id] ?? 0;
+
+    const hpUp = get('hp_up');
+    if (hpUp > 0) {
+      stats.maxHp = Math.floor(stats.maxHp * (1 + hpUp * 0.15));
+      stats.hp = stats.maxHp;
+    }
+
+    const dmgReduce = get('dmg_reduce');
+    if (dmgReduce > 0) stats.dmgTakenReduction = dmgReduce * 0.05;
+
+    const guardian = get('guardian');
+    if (guardian > 0) stats.deathPreventLevel = Math.max(stats.deathPreventLevel, guardian);
+
+    const atkUp = get('atk_up');
+    if (atkUp > 0) stats.damage = Math.floor(stats.damage * (1 + atkUp * 0.1));
+
+    const spdUp = get('spd_up');
+    if (spdUp > 0) stats.bulletSpeed = Math.floor(stats.bulletSpeed * (1 + spdUp * 0.1));
+
+    const critUp = get('crit_up');
+    if (critUp > 0) stats.critChance = Math.min(0.8, stats.critChance + critUp * 0.03);
+
+    const pioneer = get('pioneer');
+    if (pioneer > 0) stats.skillChoiceCount += pioneer;
+
+    const xpUp = get('xp_up');
+    if (xpUp > 0) stats.xpBonusRate = xpUp * 0.1;
+
+    const youkakuUp = get('youkaku_up');
+    if (youkakuUp > 0) stats.youkakuBonusRate += youkakuUp * 0.15;
+
+    const choiceUp = get('choice_up');
+    if (choiceUp > 0) stats.skillChoiceCount += choiceUp;
+
+    // 開始時回復
+    const startHeal = get('start_heal');
+    if (startHeal > 0) {
+      const rate = [0, 0.2, 0.35, 0.5][startHeal] ?? 0.5;
+      stats.hp = Math.min(stats.maxHp, stats.hp + Math.floor(stats.maxHp * rate));
+    }
+  }
+
+  // ─── XP加算（xpBonusRateを反映） ─────────────────────
+  private addXP(amount: number): void {
+    const bonus = 1 + (this.player.stats.xpBonusRate ?? 0);
+    this.xpSystem.addXP(Math.ceil(amount * bonus));
   }
 
   // ─── HUD ─────────────────────────────────────────────
@@ -238,12 +299,18 @@ export class StageScene extends Phaser.Scene {
   // ─── HP再生 ──────────────────────────────────────────
   private handleRegen(delta: number): void {
     const regenLv = this.skillSystem.getSkillLevel('B2_regen');
-    if (regenLv === 0) return;
+    const spiritRegenLv = SaveSystem.load().upgrades['spirit_regen'] ?? 0;
+    if (regenLv === 0 && spiritRegenLv === 0) return;
     this.regenTimer += delta;
     if (this.regenTimer >= 1000) {
       this.regenTimer = 0;
-      const rate = [0.01, 0.02, 0.04][regenLv - 1];
-      this.player.heal(Math.floor(this.player.stats.maxHp * rate));
+      if (regenLv > 0) {
+        const rate = [0.01, 0.02, 0.04][regenLv - 1];
+        this.player.heal(Math.floor(this.player.stats.maxHp * rate));
+      }
+      if (spiritRegenLv > 0) {
+        this.player.heal([0, 1, 2][spiritRegenLv] ?? 1);
+      }
     }
   }
 
@@ -440,7 +507,7 @@ export class StageScene extends Phaser.Scene {
       if (!gem.active) return false;
       const dist = Phaser.Math.Distance.Between(px, py, gem.x, gem.y);
       if (dist < range) {
-        this.xpSystem.addXP(gem.getData('xp') as number);
+        this.addXP(gem.getData('xp') as number);
         gem.destroy();
         return false;
       }
@@ -639,7 +706,7 @@ export class StageScene extends Phaser.Scene {
 
     // 磁石Lv3は即回収
     if (this.player.stats.xpMagnetLevel >= 3) {
-      this.xpSystem.addXP(xp);
+      this.addXP(xp);
       xpG.destroy();
       gem.destroy();
       this.xpGems = this.xpGems.filter((g) => g.active);
@@ -756,7 +823,7 @@ export class StageScene extends Phaser.Scene {
     this.xpGems = this.xpGems.filter((gem) => {
       if (!gem.active) return false;
       if (Phaser.Math.Distance.Between(px, py, gem.x, gem.y) < range) {
-        this.xpSystem.addXP(gem.getData('xp') as number);
+        this.addXP(gem.getData('xp') as number);
         (gem.getData('xpG') as Phaser.GameObjects.Graphics | undefined)?.destroy();
         gem.destroy();
         return false;
@@ -882,7 +949,7 @@ export class StageScene extends Phaser.Scene {
     const xpReward  = def?.xpReward  ?? 500;
     const ykReward  = def?.youkakuReward ?? 15;
 
-    this.xpSystem.addXP(xpReward);
+    this.addXP(xpReward);
     this.youkakuThisRun += ykReward;
     this.youkakuText.setText(`妖核: ${this.youkakuThisRun}`);
 
