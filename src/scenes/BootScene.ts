@@ -72,6 +72,17 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
+    // 敵スプライトシートにリニアフィルタ適用（拡大表示時のモザイク防止）
+    const enemyKeys = [
+      'kitunebi_sheet', 'musha_sheet', 'otome_sheet', 'tourou_sheet',
+      'orochi_sheet', 'me_sheet', 'odoriningyou_sheet', 'kagekumo_sheet',
+      'chizakura_sheet', 'monban_sheet',
+    ];
+    for (const key of enemyKeys) {
+      if (this.textures.exists(key)) {
+        this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
+      }
+    }
     this.scene.start('TitleScene');
   }
 }

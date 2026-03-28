@@ -500,15 +500,20 @@ export class StageScene extends Phaser.Scene {
   private handleXPMagnet(): void {
     const magLv = this.player.stats.xpMagnetLevel;
     if (magLv === 0 || this.xpGems.length === 0) return;
-    const range  = magLv >= 3 ? 9999 : [200, 400][magLv - 1];
+    const range = magLv >= 3 ? 9999 : [200, 400][magLv - 1];
     const px = this.player.sprite.x, py = this.player.sprite.y;
 
+    // 1フレームあたり最大10個まで収集（一度に大量収集によるフリーズ防止）
+    let collected = 0;
+    const MAX_PER_FRAME = 10;
     this.xpGems = this.xpGems.filter((gem) => {
       if (!gem.active) return false;
+      if (collected >= MAX_PER_FRAME) return true;
       const dist = Phaser.Math.Distance.Between(px, py, gem.x, gem.y);
       if (dist < range) {
         this.addXP(gem.getData('xp') as number);
         gem.destroy();
+        collected++;
         return false;
       }
       return true;
@@ -817,15 +822,18 @@ export class StageScene extends Phaser.Scene {
     const s = (elapsed % 60).toString().padStart(2, '0');
     this.timerText.setText(`${m}:${s}`);
 
-    // XP ジェムの近接回収
+    // XP ジェムの近接回収（1フレーム最大10個まで）
     const range = this.player.stats.xpMagnetLevel >= 2 ? 150 : 60;
     const px = this.player.sprite.x, py = this.player.sprite.y;
+    let xpCollected = 0;
     this.xpGems = this.xpGems.filter((gem) => {
       if (!gem.active) return false;
+      if (xpCollected >= 10) return true;
       if (Phaser.Math.Distance.Between(px, py, gem.x, gem.y) < range) {
         this.addXP(gem.getData('xp') as number);
         (gem.getData('xpG') as Phaser.GameObjects.Graphics | undefined)?.destroy();
         gem.destroy();
+        xpCollected++;
         return false;
       }
       return true;
@@ -873,7 +881,8 @@ export class StageScene extends Phaser.Scene {
       this.player.rushTimer = dur;
     }
 
-    if (this.levelUpInProgress) {
+    // ポーズ中 or 処理中は常にキューへ積む（200ms gap 中の多重起動を防ぐ）
+    if (this.levelUpInProgress || this.paused) {
       this.pendingLevelUps.push(level);
       return;
     }
@@ -899,11 +908,14 @@ export class StageScene extends Phaser.Scene {
       const cards = this.skillSystem.drawCards(choiceCount);
       const resumeAll = () => {
         this.levelUpInProgress = false;
-        this.paused = false;
-        this.physics.world.resume();
         if (this.pendingLevelUps.length > 0) {
+          // キューが残っている間はポーズを維持し、次のレベルアップへ
           const nextLv = this.pendingLevelUps.shift()!;
-          this.time.delayedCall(200, () => this.showLevelUpUI(nextLv));
+          this.time.delayedCall(150, () => this.showLevelUpUI(nextLv));
+        } else {
+          // 全キュー消化後のみポーズ解除
+          this.paused = false;
+          this.physics.world.resume();
         }
       };
       if (cards.length > 0) {
