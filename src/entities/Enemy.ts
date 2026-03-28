@@ -24,21 +24,24 @@ export interface EnemyConfig {
   firePattern: FirePattern;
   fireInterval: number;
   bulletDamage: number;
-  textureKey?: string;   // スプライト画像キー（省略時はプログラム描画）
-  spriteScale?: number;  // スプライト表示スケール
+  textureKey?: string;        // スプライト画像キー（省略時はプログラム描画）
+  spriteScale?: number;       // スプライト表示スケール
+  moveFrameEnd?: number;      // 移動アニメ最終フレーム（デフォルト3）
+  attackFrameStart?: number;  // 攻撃アニメ開始フレーム（未設定=攻撃アニメなし）
+  attackFrameEnd?: number;    // 攻撃アニメ終了フレーム
 }
 
 export const ENEMY_CONFIGS: Record<string, Omit<EnemyConfig, 'x' | 'y'>> = {
-  foxfire:      { hp: 60,  speed: 120, xp: 5,   youkakuDrop: 1, youkakuChance: 0.35, color: 0x88aaff, size: 14, movePattern: 'straight',         firePattern: 'none',         fireInterval: 9999, bulletDamage: 0,  textureKey: 'kitunebi_sheet', spriteScale: 1.2 },
-  ghost_warrior:{ hp: 180, speed: 90,  xp: 15,  youkakuDrop: 1, youkakuChance: 0.5,  color: 0xaaaadd, size: 18, movePattern: 'straight',          firePattern: 'forward3',     fireInterval: 2000, bulletDamage: 8,  textureKey: 'musha_sheet',    spriteScale: 1.6 },
-  cherry_spirit:{ hp: 80,  speed: 55,  xp: 10,  youkakuDrop: 1, youkakuChance: 0.4,  color: 0xffbbcc, size: 16, movePattern: 'wave_slow',         firePattern: 'radial8',      fireInterval: 2500, bulletDamage: 6,  textureKey: 'otome_sheet',    spriteScale: 1.4 },
-  skull_lantern:{ hp: 200, speed: 45,  xp: 20,  youkakuDrop: 1, youkakuChance: 0.6,  color: 0xffffaa, size: 20, movePattern: 'straight',          firePattern: 'fan5_alt',     fireInterval: 1800, bulletDamage: 7,  textureKey: 'tourou_sheet',      spriteScale: 1.7 },
-  fire_serpent: { hp: 400, speed: 75,  xp: 40,  youkakuDrop: 2, youkakuChance: 0.5, color: 0xff8800, size: 24, movePattern: 'wave',              firePattern: 'forward_stream',fireInterval: 500,  bulletDamage: 10, textureKey: 'orochi_sheet',      spriteScale: 2.0 },
-  yaksha_eye:   { hp: 200, speed: 80,  xp: 20,  youkakuDrop: 1, youkakuChance: 0.4, color: 0xff2222, size: 16, movePattern: 'edge_bounce',       firePattern: 'aimed_fast',   fireInterval: 1500, bulletDamage: 12, textureKey: 'me_sheet',          spriteScale: 1.3 },
-  dancing_doll: { hp: 100, speed: 100, xp: 10,  youkakuDrop: 1, youkakuChance: 0.3, color: 0xff88ff, size: 14, movePattern: 'zigzag',            firePattern: 'rapid3',       fireInterval: 900,  bulletDamage: 5,  textureKey: 'odoriningyou_sheet', spriteScale: 1.2 },
-  shadow_spider:{ hp: 350, speed: 160, xp: 35,  youkakuDrop: 2, youkakuChance: 0.5, color: 0x442266, size: 22, movePattern: 'cross_horizontal',  firePattern: 'radial8_rot',  fireInterval: 900,  bulletDamage: 7,  textureKey: 'kagekumo_sheet',    spriteScale: 1.8 },
-  blood_cherry: { hp: 300, speed: 70,  xp: 30,  youkakuDrop: 2, youkakuChance: 0.5, color: 0xff4488, size: 20, movePattern: 'straight',          firePattern: 'fan9_down',    fireInterval: 2000, bulletDamage: 8,  textureKey: 'chizakura_sheet',   spriteScale: 1.7 },
-  gate_guardian:{ hp: 800, speed: 110, xp: 100, youkakuDrop: 3, youkakuChance: 1.0, color: 0x664422, size: 32, movePattern: 'horizontal_top',    firePattern: 'large3',       fireInterval: 2800, bulletDamage: 15, textureKey: 'monban_sheet',      spriteScale: 2.7 },
+  foxfire:      { hp: 60,  speed: 120, xp: 5,   youkakuDrop: 1, youkakuChance: 0.35, color: 0x88aaff, size: 14, movePattern: 'straight',         firePattern: 'none',          fireInterval: 9999, bulletDamage: 0,  textureKey: 'kitunebi_sheet',    spriteScale: 1.2 },
+  ghost_warrior:{ hp: 180, speed: 90,  xp: 15,  youkakuDrop: 1, youkakuChance: 0.5,  color: 0xaaaadd, size: 18, movePattern: 'straight',          firePattern: 'forward3',      fireInterval: 2000, bulletDamage: 8,  textureKey: 'musha_sheet',       spriteScale: 1.6 },
+  cherry_spirit:{ hp: 80,  speed: 55,  xp: 10,  youkakuDrop: 1, youkakuChance: 0.4,  color: 0xffbbcc, size: 16, movePattern: 'wave_slow',         firePattern: 'radial8',       fireInterval: 2500, bulletDamage: 6,  textureKey: 'otome_sheet',       spriteScale: 1.4 },
+  skull_lantern:{ hp: 200, speed: 45,  xp: 20,  youkakuDrop: 1, youkakuChance: 0.6,  color: 0xffffaa, size: 20, movePattern: 'straight',          firePattern: 'fan5_alt',      fireInterval: 1800, bulletDamage: 7,  textureKey: 'tourou_sheet',      spriteScale: 1.7 },
+  fire_serpent: { hp: 400, speed: 75,  xp: 40,  youkakuDrop: 2, youkakuChance: 0.5,  color: 0xff8800, size: 24, movePattern: 'wave',              firePattern: 'forward_stream', fireInterval: 500,  bulletDamage: 10, textureKey: 'orochi_sheet',      spriteScale: 2.0, moveFrameEnd: 1, attackFrameStart: 2, attackFrameEnd: 3 },
+  yaksha_eye:   { hp: 200, speed: 80,  xp: 20,  youkakuDrop: 1, youkakuChance: 0.4,  color: 0xff2222, size: 16, movePattern: 'edge_bounce',       firePattern: 'aimed_fast',    fireInterval: 1500, bulletDamage: 12, textureKey: 'me_sheet',          spriteScale: 1.3 },
+  dancing_doll: { hp: 100, speed: 100, xp: 10,  youkakuDrop: 1, youkakuChance: 0.3,  color: 0xff88ff, size: 14, movePattern: 'zigzag',            firePattern: 'rapid3',        fireInterval: 900,  bulletDamage: 5,  textureKey: 'odoriningyou_sheet', spriteScale: 1.2 },
+  shadow_spider:{ hp: 350, speed: 160, xp: 35,  youkakuDrop: 2, youkakuChance: 0.5,  color: 0x442266, size: 22, movePattern: 'cross_horizontal',  firePattern: 'radial8_rot',   fireInterval: 900,  bulletDamage: 7,  textureKey: 'kagekumo_sheet',    spriteScale: 1.8 },
+  blood_cherry: { hp: 300, speed: 70,  xp: 30,  youkakuDrop: 2, youkakuChance: 0.5,  color: 0xff4488, size: 20, movePattern: 'straight',          firePattern: 'fan9_down',     fireInterval: 2000, bulletDamage: 8,  textureKey: 'chizakura_sheet',   spriteScale: 1.7, moveFrameEnd: 1, attackFrameStart: 2, attackFrameEnd: 3 },
+  gate_guardian:{ hp: 800, speed: 110, xp: 100, youkakuDrop: 3, youkakuChance: 1.0,  color: 0x664422, size: 32, movePattern: 'horizontal_top',    firePattern: 'large3',        fireInterval: 2800, bulletDamage: 15, textureKey: 'monban_sheet',      spriteScale: 2.7, moveFrameEnd: 1, attackFrameStart: 2, attackFrameEnd: 3 },
 };
 
 // ステータス異常
@@ -68,6 +71,10 @@ export class Enemy {
   private settledY: boolean = false;
   private readonly sceneWidth: number;
 
+  // アニメーション
+  private attackAnimTimer: number = 0;
+  private static readonly ATTACK_ANIM_DURATION = 700; // ms
+
   // ステータス異常
   statusEffects: StatusEffect[] = [];
   private dotTimer: number = 0;  // DoT（毒/燃焼）タイマー
@@ -94,16 +101,35 @@ export class Enemy {
       this.sprite.setAlpha(0); // 物理用 Arc を非表示
       this.visualSprite = scene.add.sprite(config.x, config.y, config.textureKey)
         .setDepth(5).setScale(config.spriteScale ?? 1.0);
-      const animKey = `${config.textureKey}_move`;
-      if (!scene.anims.exists(animKey)) {
+
+      const moveEnd = config.moveFrameEnd ?? 3;
+      const moveKey = `${config.textureKey}_move`;
+      if (!scene.anims.exists(moveKey)) {
         scene.anims.create({
-          key: animKey,
-          frames: scene.anims.generateFrameNumbers(config.textureKey, { start: 0, end: 3 }),
+          key: moveKey,
+          frames: scene.anims.generateFrameNumbers(config.textureKey, { start: 0, end: moveEnd }),
           frameRate: 8,
           repeat: -1,
         });
       }
-      this.visualSprite.play(animKey);
+
+      // 攻撃アニメーション（フレーム定義がある場合のみ）
+      if (config.attackFrameStart !== undefined && config.attackFrameEnd !== undefined) {
+        const attackKey = `${config.textureKey}_attack`;
+        if (!scene.anims.exists(attackKey)) {
+          scene.anims.create({
+            key: attackKey,
+            frames: scene.anims.generateFrameNumbers(config.textureKey, {
+              start: config.attackFrameStart,
+              end: config.attackFrameEnd,
+            }),
+            frameRate: 8,
+            repeat: -1,
+          });
+        }
+      }
+
+      this.visualSprite.play(moveKey);
     }
 
     this.edgeMoveDir = Math.random() < 0.5 ? 1 : -1;
@@ -124,6 +150,15 @@ export class Enemy {
 
     // ステータス異常の更新
     this.updateStatus(delta);
+
+    // 攻撃アニメーションタイマー
+    if (this.attackAnimTimer > 0) {
+      this.attackAnimTimer -= delta;
+      if (this.attackAnimTimer <= 0) {
+        this.attackAnimTimer = 0;
+        this.visualSprite?.play(`${this.config.textureKey}_move`);
+      }
+    }
 
     // 凍結中は動かない
     if (this.isFrozen()) {
@@ -266,6 +301,11 @@ export class Enemy {
     if (this.timeSinceFire >= this.config.fireInterval) {
       this.fireBullets();
       this.timeSinceFire = 0;
+      // 攻撃アニメーション切り替え
+      if (this.config.attackFrameStart !== undefined && this.visualSprite) {
+        this.visualSprite.play(`${this.config.textureKey}_attack`);
+        this.attackAnimTimer = Enemy.ATTACK_ANIM_DURATION;
+      }
     }
   }
 

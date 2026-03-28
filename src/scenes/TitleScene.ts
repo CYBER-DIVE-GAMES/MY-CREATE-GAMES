@@ -120,9 +120,34 @@ export class TitleScene extends Phaser.Scene {
     super({ key: 'TitleScene' });
   }
 
+  private playButtonSE(): void {
+    try {
+      const manager = this.sound as Phaser.Sound.WebAudioSoundManager;
+      const ctx = manager.context;
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(900, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(500, ctx.currentTime + 0.07);
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.07);
+    } catch { /* WebAudio非対応時は無音 */ }
+  }
+
   create(): void {
     const { width, height } = this.scale;
     const saveData = SaveSystem.load();
+
+    // タイトルBGM
+    this.sound.stopAll();
+    if (this.cache.audio.exists('bgm_title')) {
+      this.sound.add('bgm_title', { loop: true, volume: 0.7 }).play();
+    }
 
     // 背景画像
     if (this.textures.exists('title_bg')) {
@@ -173,7 +198,11 @@ export class TitleScene extends Phaser.Scene {
     const startZone = this.add.zone(width/2, 500, 240, 60).setInteractive({ useHandCursor: true });
     startZone.on('pointerover', () => { drawStartBtn(true); startText.setColor('#ffd700'); });
     startZone.on('pointerout', () => { drawStartBtn(false); startText.setColor('#ffffff'); });
-    startZone.on('pointerdown', () => this.scene.start('StageScene', { stage: 1 }));
+    startZone.on('pointerdown', () => {
+      this.playButtonSE();
+      this.sound.stopAll();
+      this.scene.start('StageScene', { stage: 1 });
+    });
 
     // 「修行の間」ボタン
     const trainBtnBg = this.add.graphics().setDepth(3);
@@ -193,6 +222,7 @@ export class TitleScene extends Phaser.Scene {
     trainZone.on('pointerover', () => { drawTrainBtn(true); trainText.setColor('#ffffff'); });
     trainZone.on('pointerout', () => { drawTrainBtn(false); trainText.setColor('#cc88ff'); });
     trainZone.on('pointerdown', () => {
+      this.playButtonSE();
       this.showUpgradeTree(youkakuText);
     });
 
@@ -279,7 +309,7 @@ export class TitleScene extends Phaser.Scene {
 
     closeBtn.on('pointerover', () => closeBtn.setColor('#ffffff'));
     closeBtn.on('pointerout', () => closeBtn.setColor('#aaaaaa'));
-    closeBtn.on('pointerdown', () => closeAll());
+    closeBtn.on('pointerdown', () => { this.playButtonSE(); closeAll(); });
   }
 
   private buildUpgradeCell(
@@ -386,6 +416,7 @@ export class TitleScene extends Phaser.Scene {
       data.upgrades[upDef.id] = lv + 1;
       SaveSystem.save(data);
 
+      this.playButtonSE();
       onPurchase();
       refresh();
 
