@@ -966,13 +966,119 @@ export class StageScene extends Phaser.Scene {
         if (this.waveSystem.getElapsed() >= 1799) {
           this.onStageClear();
         } else {
-          // ボスBGMが流れていた場合はステージBGMに戻す
-          this.bgm?.stop();
-          this.bgm = this.sound.add('bgm_stage1', { loop: true, volume: 0.6 });
-          this.bgm.play();
+          // ボス撃破報酬スキル画面を表示（なければBGMを即復帰）
+          this.showBossRewardUI();
         }
       },
     });
+  }
+
+  // ─── ボス撃破報酬スキル ────────────────────────────────
+  private showBossRewardUI(): void {
+    const cards = this.skillSystem.drawBossRewardCards(2);
+
+    const resumeStage = () => {
+      this.paused = false;
+      this.physics.world.resume();
+      this.bgm?.stop();
+      this.bgm = this.sound.add('bgm_stage1', { loop: true, volume: 0.6 });
+      this.bgm.play();
+    };
+
+    if (cards.length === 0) { resumeStage(); return; }
+
+    this.paused = true;
+    this.physics.world.pause();
+
+    const { width, height } = this.scale;
+    const DEPTH = 300;
+    const overlay: Phaser.GameObjects.GameObject[] = [];
+    const add = <T extends Phaser.GameObjects.GameObject>(obj: T): T => { overlay.push(obj); return obj; };
+
+    // 背景
+    add(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85)
+      .setDepth(DEPTH).setInteractive());
+
+    // タイトル
+    add(this.add.text(width / 2, 75, '⚔  ボス撃破！', {
+      fontSize: '30px', color: '#ffd700', fontStyle: 'bold',
+      stroke: '#cc6600', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(DEPTH + 1));
+    add(this.add.text(width / 2, 120, '報酬スキルを1つ選択してください', {
+      fontSize: '18px', color: '#ccbbff',
+    }).setOrigin(0.5).setDepth(DEPTH + 1));
+
+    const closeAll = (picked: boolean) => {
+      overlay.forEach((o) => o.destroy());
+      if (picked) {
+        // シナジー更新
+        const { width: w, height: h } = this.scale;
+        const flash = this.add.rectangle(w / 2, h / 2, w, h, 0xffdd00, 0.2).setDepth(DEPTH + 10);
+        this.tweens.add({ targets: flash, alpha: 0, duration: 400, onComplete: () => flash.destroy() });
+      }
+      resumeStage();
+    };
+
+    // カード
+    const cardW = 170;
+    const cardH = 270;
+    const spacing = 28;
+    const totalW = cards.length * cardW + (cards.length - 1) * spacing;
+    const startX = (width - totalW) / 2 + cardW / 2;
+
+    cards.forEach((skill, i) => {
+      const cx = startX + i * (cardW + spacing);
+      const cy = height / 2 + 20;
+      const currentLv = this.skillSystem.getSkillLevel(skill.id);
+      const nextLv = currentLv + 1;
+      const isGold = skill.category === 'G';
+
+      // カード背景
+      const card = add(this.add.rectangle(cx, cy, cardW, cardH, isGold ? 0x221100 : 0x110022)
+        .setDepth(DEPTH + 1).setStrokeStyle(2, skill.color)
+        .setInteractive({ useHandCursor: true })) as Phaser.GameObjects.Rectangle;
+
+      // カテゴリバー
+      add(this.add.rectangle(cx, cy - cardH / 2 + 18, cardW - 4, 36, skill.color)
+        .setDepth(DEPTH + 2));
+      add(this.add.text(cx, cy - cardH / 2 + 18,
+        isGold ? '★ ゴールドスキル' : '☠ 呪いスキル', {
+          fontSize: '13px', color: '#ffffff', fontStyle: 'bold',
+        }).setOrigin(0.5).setDepth(DEPTH + 3));
+
+      // スキル名
+      add(this.add.text(cx, cy - cardH / 2 + 55, skill.name, {
+        fontSize: '19px', color: '#ffffff', fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(DEPTH + 3));
+
+      // レベル
+      const lvLabel = currentLv > 0 ? `Lv ${currentLv} → ${nextLv}` : 'NEW';
+      add(this.add.text(cx, cy - cardH / 2 + 85, lvLabel, {
+        fontSize: '13px', color: currentLv > 0 ? '#88ffaa' : '#ffd700',
+      }).setOrigin(0.5).setDepth(DEPTH + 3));
+
+      // 説明
+      add(this.add.text(cx, cy + 10, skill.description(nextLv), {
+        fontSize: '14px', color: '#dddddd',
+        wordWrap: { width: cardW - 20 }, align: 'center',
+      }).setOrigin(0.5).setDepth(DEPTH + 3));
+
+      // ホバー・選択
+      card.on('pointerover', () => { card.setFillStyle(isGold ? 0x443300 : 0x220044); card.setScale(1.04); });
+      card.on('pointerout',  () => { card.setFillStyle(isGold ? 0x221100 : 0x110022); card.setScale(1.0);  });
+      card.on('pointerdown', () => {
+        this.skillSystem.acquire(skill.id, this.player.stats);
+        closeAll(true);
+      });
+    });
+
+    // スキップボタン
+    const skipBtn = add(this.add.text(width / 2, height - 55, '[ スキップ ]', {
+      fontSize: '18px', color: '#888888',
+    }).setOrigin(0.5).setDepth(DEPTH + 2).setInteractive({ useHandCursor: true }));
+    skipBtn.on('pointerover', () => (skipBtn as Phaser.GameObjects.Text).setColor('#ffffff'));
+    skipBtn.on('pointerout',  () => (skipBtn as Phaser.GameObjects.Text).setColor('#888888'));
+    skipBtn.on('pointerdown', () => closeAll(false));
   }
 
   // ─── ステージクリア ───────────────────────────────────

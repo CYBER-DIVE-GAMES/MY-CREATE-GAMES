@@ -13,6 +13,16 @@ export const CURSE_SKILLS: SkillDef[] = [
     },
   },
   {
+    id: 'K2_rampage',
+    name: '暴走機関',
+    category: 'K', color: 0x8800cc, maxLevel: 1,
+    description: (_lv) => '攻撃速度+200% / 弾が全方向に散乱',
+    apply: (stats, _lv) => {
+      stats.fireInterval = Math.floor(stats.fireInterval / 3.0);
+      stats.scatterCount = Math.max(stats.scatterCount, 7);
+    },
+  },
+  {
     id: 'K3_time_offering',
     name: '時の贄',
     category: 'K', color: 0x8800cc, maxLevel: 1,
@@ -28,7 +38,6 @@ export const CURSE_SKILLS: SkillDef[] = [
     category: 'K', color: 0x8800cc, maxLevel: 1,
     description: (_lv) => '既存スキル効果全て+50% / 最後に取得したスキルが消去される',
     apply: (stats, _lv) => {
-      // ダメージ・弾速を+50%で表現
       stats.damage      = Math.floor(stats.damage * 1.5);
       stats.bulletSpeed = Math.floor(stats.bulletSpeed * 1.5);
     },

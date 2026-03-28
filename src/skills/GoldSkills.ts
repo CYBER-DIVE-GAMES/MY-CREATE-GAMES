@@ -10,7 +10,6 @@ export const GOLD_SKILLS: SkillDef[] = [
       stats.damage = Math.floor(stats.damage * 1.3);
       stats.sideGunCount = Math.max(1, stats.sideGunCount);
     },
-    isUnlocked: (_a) => true, // LvチェックはSkillSystem側
   },
   {
     id: 'G2_undying_heart',
@@ -21,7 +20,6 @@ export const GOLD_SKILLS: SkillDef[] = [
       stats.deathPreventLevel = Math.max(stats.deathPreventLevel, 3);
       stats.maxHp = Math.floor(stats.maxHp * 1.2);
     },
-    isUnlocked: (a) => a.has('B8_last_stand'),
   },
   {
     id: 'G3_chaos_engine',
@@ -29,7 +27,6 @@ export const GOLD_SKILLS: SkillDef[] = [
     category: 'G', color: 0xffcc00, maxLevel: 1,
     description: (_lv) => '攻撃のたびにランダムな属性効果を付与',
     apply: (stats, _lv) => {
-      // 全属性を同時付与（Lv1相当）
       stats.poisonLevel = Math.max(stats.poisonLevel, 1);
       stats.burnLevel   = Math.max(stats.burnLevel, 1);
       stats.iceLevel    = Math.max(stats.iceLevel, 1);
@@ -44,5 +41,14 @@ export const GOLD_SKILLS: SkillDef[] = [
       stats.dischargeLevel = Math.max(stats.dischargeLevel, 3);
     },
     isUnlocked: (a) => a.has('A9_crit_rate') && a.has('C4_discharge'),
+  },
+  {
+    id: 'G5_reincarnation',
+    name: '廻転輪廻',
+    category: 'G', color: 0xffcc00, maxLevel: 1,
+    description: (_lv) => '死亡時に現ランLvを引き継いで即リスタート（1回限り）',
+    apply: (stats, _lv) => {
+      stats.deathPreventLevel = Math.max(stats.deathPreventLevel, 2);
+    },
   },
 ];

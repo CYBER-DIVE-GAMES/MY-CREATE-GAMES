@@ -29,16 +29,6 @@ export const ATTACK_SKILLS: SkillDef[] = [
     },
   },
   {
-    id: 'A4_gravity',
-    name: '重力弾',
-    category: 'A', color: 0xff4444, maxLevel: 3,
-    description: (lv) => ['弾が放物線・着弾で広範囲', '引力発生・敵を引き寄せ', '引き寄せた敵にもダメージ'][lv - 1],
-    apply: (stats, lv) => {
-      // 爆発範囲を代替として使用（引力は未来実装）
-      stats.explosionLevel = Math.max(stats.explosionLevel, lv);
-    },
-  },
-  {
     id: 'A5_split',
     name: '分裂弾',
     category: 'A', color: 0xff4444, maxLevel: 3,
@@ -65,5 +55,23 @@ export const ATTACK_SKILLS: SkillDef[] = [
     category: 'A', color: 0xff4444, maxLevel: 3,
     description: (lv) => ['命中時に減速 50%', '凍結 1秒停止', '凍結後の攻撃ダメ +50%'][lv - 1],
     apply: (stats, lv) => { stats.iceLevel = lv; },
+  },
+  {
+    id: 'A9_crit_rate',
+    name: 'クリ率上昇',
+    category: 'A', color: 0xff4444, maxLevel: 3,
+    description: (lv) => ['クリ率 +10%', 'クリ率 +20%', 'クリ率 +35%'][lv - 1],
+    apply: (stats, lv) => {
+      stats.critChance = Math.min(0.9, stats.critChance + [0.10, 0.20, 0.35][lv - 1]);
+    },
+  },
+  {
+    id: 'A10_crit_damage',
+    name: 'クリダメ強化',
+    category: 'A', color: 0xff4444, maxLevel: 3,
+    description: (lv) => ['クリダメ +50%', 'クリダメ +100%', 'クリダメ +200%'][lv - 1],
+    apply: (stats, lv) => {
+      stats.critMultiplier = [2.5, 3.0, 4.0][lv - 1];
+    },
   },
 ];
