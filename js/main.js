@@ -1,34 +1,44 @@
 // ============================================================
-// main.js - Phaserゲーム初期化
+// main.js - Phaser ゲーム初期化
 // ============================================================
+window.addEventListener('load', () => {
 
-const GAME_WIDTH  = 800;
-const GAME_HEIGHT = 500;
-
-const config = {
-    type: Phaser.AUTO,
-    width: GAME_WIDTH,
-    height: GAME_HEIGHT,
+  const config = {
+    type:   Phaser.AUTO,
+    width:  GameConfig.WIDTH,
+    height: GameConfig.HEIGHT,
     parent: 'game-container',
-    backgroundColor: '#0a0a1a',
-    render: {
-        antialias: false,    // ピクセルアートのためオフ
-        pixelArt: true,
-    },
-    scene: [
-        BootScene,
-        MenuScene,
-        WorldMapScene,
-        GameScene,
-        ResultScene,
-        UpgradeScene,
-    ],
-    scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: GAME_WIDTH,
-        height: GAME_HEIGHT,
-    },
-};
+    backgroundColor: '#0d0d1a',
 
-const game = new Phaser.Game(config);
+    physics: {
+      default: 'arcade',
+      arcade:  { gravity: { y: 0 }, debug: false },
+    },
+
+    scene: [
+      BootScene,
+      TitleScene,
+      FieldScene,
+      HUDScene,
+      DialogScene,
+      PauseMenuScene,
+      WorldMapScene,
+      GameOverScene,
+      EndingScene,
+    ],
+
+    scale: {
+      mode:       Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+    },
+
+    render: {
+      antialias:        false,
+      pixelArt:         false,
+      roundPixels:      true,
+      powerPreference:  'high-performance',
+    },
+  };
+
+  new Phaser.Game(config);
+});

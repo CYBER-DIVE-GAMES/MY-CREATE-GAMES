@@ -1,25 +1,93 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+/* ============================================================
+   SHADOW ECHO - スタイルシート
+   ============================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-body {
-    background: #1a1a2e;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    font-family: 'Courier New', monospace;
-    overflow: hidden;
+html, body {
+  width: 100%;
+  height: 100%;
+  background-color: #0d0d1a;
+  overflow: hidden;
+  font-family: 'Palatino Linotype', Palatino, serif;
+  color: #f0e6c8;
 }
 
 #game-container {
-    position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
 }
 
 canvas {
-    display: block;
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
+  display: block;
+  image-rendering: auto;
+  outline: none;
+  /* 微妙な枠線でゲーム感を演出 */
+  box-shadow:
+    0 0 0 1px #1a1a3a,
+    0 0 40px rgba(30, 10, 60, 0.8),
+    0 0 80px rgba(10, 0, 30, 0.5);
+}
+
+/* スクロールバー非表示 */
+::-webkit-scrollbar { width: 0; height: 0; }
+
+/* テキスト選択無効 */
+* { user-select: none; -webkit-user-select: none; }
+
+/* ローディング表示 */
+#loading {
+  position: fixed;
+  inset: 0;
+  background: #0d0d1a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.5s;
+}
+
+#loading.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#loading-title {
+  font-size: 2rem;
+  color: #daa520;
+  letter-spacing: 0.3em;
+  margin-bottom: 0.5rem;
+}
+
+#loading-sub {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 2rem;
+}
+
+#loading-bar-bg {
+  width: 300px;
+  height: 4px;
+  background: #1a1a3a;
+  border-radius: 2px;
+}
+
+#loading-bar {
+  height: 100%;
+  width: 0%;
+  background: #daa520;
+  border-radius: 2px;
+  animation: loading-fill 1.5s ease forwards;
+}
+
+@keyframes loading-fill {
+  to { width: 100%; }
 }
