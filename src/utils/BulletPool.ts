@@ -47,6 +47,7 @@ export class BulletPool {
       bullet.setRadius(radius);
       bullet.setFillStyle(color);
     }
+    bullet.setDepth(7);
 
     // プレイヤー主弾は透明にして斬撃ビジュアルを重ねる
     if (useZangeki && scene.textures.exists('zangeki')) {

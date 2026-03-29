@@ -13,17 +13,15 @@ export const ALL_SKILLS: SkillDef[] = [
   ...ATTACK_SKILLS,
   ...DEFENSE_SKILLS,
   ...BULLET_SKILLS,
-  ...UTILITY_SKILLS,
   ...GOLD_SKILLS,
   ...CURSE_SKILLS,
 ];
 
-// レベルアップ時の選択肢プール（A / B / C / D のみ）
+// レベルアップ時の選択肢プール（A / B / C のみ）
 const LEVEL_UP_SKILLS: SkillDef[] = [
   ...ATTACK_SKILLS,
   ...DEFENSE_SKILLS,
   ...BULLET_SKILLS,
-  ...UTILITY_SKILLS,
 ];
 
 // ボス撃破報酬プール（G / K のみ）
@@ -111,10 +109,6 @@ export class SkillSystem {
     if (currentLv >= skill.maxLevel) return;
 
     this.acquired.set(skillId, currentLv + 1);
-
-    // D7 幸運の鈴レベルを更新
-    const d7lv = this.getSkillLevel('D7_lucky_bell');
-    this.luckyBellLevel = d7lv;
 
     // 全スキルを再計算
     this.recalculate(playerStats);

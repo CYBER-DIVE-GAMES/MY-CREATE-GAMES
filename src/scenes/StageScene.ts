@@ -54,6 +54,9 @@ export class StageScene extends Phaser.Scene {
   private youkakuGems: { g: Phaser.GameObjects.Graphics; x: number; y: number; amount: number }[] = [];
   private groundY: number = 0;
 
+  // ハートドロップ（最大HP30%回復アイテム）
+  private heartDrops: { g: Phaser.GameObjects.Graphics; x: number; y: number }[] = [];
+
   // 地面
   private groundPlatform!: Phaser.GameObjects.Rectangle;
 
@@ -78,6 +81,7 @@ export class StageScene extends Phaser.Scene {
     this.orbitalBullets = [];
     this.xpGems = [];
     this.youkakuGems = [];
+    this.heartDrops = [];
     this.synergyTexts = [];
     this.pendingLevelUps = [];
     this.levelUpInProgress = false;
@@ -512,6 +516,8 @@ export class StageScene extends Phaser.Scene {
       const dist = Phaser.Math.Distance.Between(px, py, gem.x, gem.y);
       if (dist < range) {
         this.addXP(gem.getData('xp') as number);
+        this.tweens.killTweensOf(gem);
+        (gem.getData('xpG') as Phaser.GameObjects.Graphics | undefined)?.destroy();
         gem.destroy();
         collected++;
         return false;
@@ -743,6 +749,44 @@ export class StageScene extends Phaser.Scene {
 
     // 妖核ドロップ
     this.dropYoukaku(x, y, youkakuDrop, youkakuChance);
+
+    // ハートドロップ（5%）
+    this.dropHeart(x, y);
+  }
+
+  private dropHeart(x: number, y: number): void {
+    if (Math.random() > 0.05) return;
+
+    const g = this.add.graphics().setDepth(5);
+    const landY = this.groundY - 10;
+    const drawHeart = (hx: number, hy: number) => {
+      g.clear();
+      g.fillStyle(0xff2255, 1);
+      g.fillCircle(hx - 5, hy - 3, 7);
+      g.fillCircle(hx + 5, hy - 3, 7);
+      g.fillTriangle(hx - 11, hy + 2, hx + 11, hy + 2, hx, hy + 14);
+      g.fillStyle(0xff88aa, 0.7);
+      g.fillCircle(hx - 3, hy - 5, 3);
+    };
+    drawHeart(x, y);
+
+    const tweenObj = { x, y };
+    this.tweens.add({
+      targets: tweenObj,
+      y: landY,
+      duration: 1200,
+      ease: 'Quad.easeIn',
+      onUpdate: () => drawHeart(tweenObj.x, tweenObj.y),
+      onComplete: () => {
+        drawHeart(x, landY);
+        this.heartDrops.push({ g, x, y: landY });
+        this.time.delayedCall(10000, () => {
+          if (!g.active) return;
+          this.tweens.add({ targets: g, alpha: 0, duration: 400, onComplete: () => { g.destroy(); } });
+          this.heartDrops = this.heartDrops.filter((h) => h.g !== g);
+        });
+      },
+    });
   }
 
   private dropYoukaku(x: number, y: number, amount: number, chance: number): void {
@@ -834,6 +878,22 @@ export class StageScene extends Phaser.Scene {
         (gem.getData('xpG') as Phaser.GameObjects.Graphics | undefined)?.destroy();
         gem.destroy();
         xpCollected++;
+        return false;
+      }
+      return true;
+    });
+
+    // ハートドロップ回収（近接）
+    this.heartDrops = this.heartDrops.filter((h) => {
+      if (!h.g.active) return false;
+      if (Phaser.Math.Distance.Between(px, py, h.x, h.y) < 40) {
+        const heal = Math.floor(this.player.stats.maxHp * 0.3);
+        this.player.heal(heal);
+        const healTxt = this.add.text(h.x, h.y - 10, `+${heal}HP`, {
+          fontSize: '16px', color: '#ff88aa', stroke: '#000000', strokeThickness: 3, fontStyle: 'bold',
+        }).setOrigin(0.5).setDepth(50);
+        this.tweens.add({ targets: healTxt, y: h.y - 50, alpha: 0, duration: 700, onComplete: () => healTxt.destroy() });
+        this.tweens.add({ targets: h.g, alpha: 0, scaleX: 1.8, scaleY: 1.8, duration: 300, onComplete: () => h.g.destroy() });
         return false;
       }
       return true;
@@ -987,7 +1047,7 @@ export class StageScene extends Phaser.Scene {
 
   // ─── ボス撃破報酬スキル ────────────────────────────────
   private showBossRewardUI(): void {
-    const cards = this.skillSystem.drawBossRewardCards(2);
+    const cards = this.skillSystem.drawBossRewardCards(3);
 
     const resumeStage = () => {
       this.paused = false;
@@ -1032,9 +1092,9 @@ export class StageScene extends Phaser.Scene {
     };
 
     // カード
-    const cardW = 170;
-    const cardH = 270;
-    const spacing = 28;
+    const cardW = 150;
+    const cardH = 260;
+    const spacing = 18;
     const totalW = cards.length * cardW + (cards.length - 1) * spacing;
     const startX = (width - totalW) / 2 + cardW / 2;
 
