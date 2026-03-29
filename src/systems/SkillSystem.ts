@@ -4,7 +4,6 @@ import { SkillDef } from '../skills/SkillBase';
 import { ATTACK_SKILLS }  from '../skills/AttackSkills';
 import { DEFENSE_SKILLS } from '../skills/DefenseSkills';
 import { BULLET_SKILLS }  from '../skills/BulletSkills';
-import { UTILITY_SKILLS } from '../skills/UtilitySkills';
 import { GOLD_SKILLS }    from '../skills/GoldSkills';
 import { CURSE_SKILLS }   from '../skills/CurseSkills';
 
