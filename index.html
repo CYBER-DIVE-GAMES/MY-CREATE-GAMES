@@ -1,41 +1,99 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>城砦の守護者 - Castle Defender</title>
-    <link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SHADOW ECHO — シャドウエコー</title>
+  <link rel="stylesheet" href="css/style.css">
 
-    <!-- Phaser 3 (CDN) -->
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <!-- Phaser 3.60 -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 </head>
 <body>
-    <div id="game-container"></div>
 
-    <!-- ゲームデータ -->
-    <script src="js/data/UnitData.js"></script>
-    <script src="js/data/StageData.js"></script>
-    <script src="js/data/UpgradeData.js"></script>
+  <!-- ローディング画面 -->
+  <div id="loading">
+    <div id="loading-title">SHADOW ECHO</div>
+    <div id="loading-sub">シャドウエコー — 失われた魂の物語</div>
+    <div id="loading-bar-bg"><div id="loading-bar"></div></div>
+  </div>
 
-    <!-- マネージャー -->
-    <script src="js/managers/SaveManager.js"></script>
-    <script src="js/managers/WaveManager.js"></script>
-    <script src="js/managers/UIManager.js"></script>
+  <!-- ゲームキャンバス -->
+  <div id="game-container"></div>
 
-    <!-- ゲームオブジェクト -->
-    <script src="js/objects/Castle.js"></script>
-    <script src="js/objects/Projectile.js"></script>
-    <script src="js/objects/Unit.js"></script>
+  <!-- ============================================================
+       コア
+  ============================================================ -->
+  <script src="js/config/GameConfig.js"></script>
+  <script src="js/core/EventBus.js"></script>
+  <script src="js/core/GameState.js"></script>
 
-    <!-- シーン -->
-    <script src="js/scenes/BootScene.js"></script>
-    <script src="js/scenes/MenuScene.js"></script>
-    <script src="js/scenes/WorldMapScene.js"></script>
-    <script src="js/scenes/GameScene.js"></script>
-    <script src="js/scenes/ResultScene.js"></script>
-    <script src="js/scenes/UpgradeScene.js"></script>
+  <!-- ============================================================
+       データ
+  ============================================================ -->
+  <script src="js/data/EnemyData.js"></script>
+  <script src="js/data/ItemData.js"></script>
+  <script src="js/data/QuestData.js"></script>
+  <script src="js/data/StoryData.js"></script>
+  <script src="js/data/AreaData.js"></script>
 
-    <!-- メイン初期化 -->
-    <script src="js/main.js"></script>
+  <!-- ============================================================
+       マネージャー
+  ============================================================ -->
+  <script src="js/managers/SaveManager.js"></script>
+  <script src="js/managers/AudioManager.js"></script>
+
+  <!-- ============================================================
+       システム
+  ============================================================ -->
+  <script src="js/systems/LevelSystem.js"></script>
+  <script src="js/systems/QuestSystem.js"></script>
+  <script src="js/systems/DialogSystem.js"></script>
+  <script src="js/systems/CombatSystem.js"></script>
+
+  <!-- ============================================================
+       UI コンポーネント
+  ============================================================ -->
+  <script src="js/ui/MenuUI.js"></script>
+  <script src="js/ui/DialogBox.js"></script>
+  <script src="js/ui/HUD.js"></script>
+
+  <!-- ============================================================
+       ゲームオブジェクト
+  ============================================================ -->
+  <script src="js/objects/Projectile.js"></script>
+  <script src="js/objects/NPC.js"></script>
+  <script src="js/objects/enemies/BaseEnemy.js"></script>
+  <script src="js/objects/enemies/ShadeSmall.js"></script>
+  <script src="js/objects/enemies/ShadeWarrior.js"></script>
+  <script src="js/objects/enemies/AncientBoss.js"></script>
+  <script src="js/objects/Player.js"></script>
+
+  <!-- ============================================================
+       シーン
+  ============================================================ -->
+  <script src="js/scenes/BootScene.js"></script>
+  <script src="js/scenes/TitleScene.js"></script>
+  <script src="js/scenes/WorldMapScene.js"></script>
+  <script src="js/scenes/DialogScene.js"></script>
+  <script src="js/scenes/PauseMenuScene.js"></script>
+  <script src="js/scenes/GameOverScene.js"></script>
+  <script src="js/scenes/EndingScene.js"></script>
+  <script src="js/scenes/FieldScene.js"></script>
+
+  <!-- ============================================================
+       初期化
+  ============================================================ -->
+  <script src="js/main.js"></script>
+
+  <script>
+    // ローディング画面を非表示にする（Phaserが起動したら）
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const el = document.getElementById('loading');
+        if (el) { el.classList.add('hidden'); setTimeout(() => el.remove(), 600); }
+      }, 1600);
+    });
+  </script>
 </body>
 </html>
