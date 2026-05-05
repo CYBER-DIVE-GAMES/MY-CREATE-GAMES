@@ -205,9 +205,9 @@ class WorldMapScene extends Phaser.Scene {
     }
 
     selectStage(stage) {
-        // ステージ詳細ポップアップ
+        // ステージ詳細ポップアップ（難易度選択付き）
         const { width: W, height: H } = this.scale;
-        const dlgW = 300, dlgH = 200;
+        const dlgW = 320, dlgH = 270;
         const dlgX = W / 2 - dlgW / 2;
         const dlgY = H / 2 - dlgH / 2;
 
@@ -221,67 +221,137 @@ class WorldMapScene extends Phaser.Scene {
 
         const stars = this.saveData.stageStars[stage.id] || 0;
         const cleared = this.saveData.clearedStages.includes(stage.id);
-        const castleStats = SaveManager.getCastleStats(this.saveData);
 
-        const title = this.add.text(W / 2, dlgY + 18, stage.name, {
+        const title = this.add.text(W / 2, dlgY + 14, stage.name, {
             fontSize: '15px', fill: '#ffee88', fontFamily: 'monospace',
         }).setOrigin(0.5, 0).setDepth(51);
 
-        const info = `世界 ${stage.world} - ${stage.stage}面\n`
-            + `敵城HP: ${stage.castleHp}\n`
+        const info = `世界 ${stage.world} - ${stage.stage}面  `
             + `ウェーブ: ${stage.waves.length}\n`
+            + `敵城HP: ${stage.castleHp}  `
             + `報酬: ${stage.rewards.gold}G / ${stage.rewards.exp}EXP\n`
             + (cleared ? `ベスト★: ${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}` : '未クリア');
 
-        const infoText = this.add.text(W / 2, dlgY + 45, info, {
-            fontSize: '12px', fill: '#aabbcc', fontFamily: 'monospace', align: 'center', lineSpacing: 4,
+        const infoText = this.add.text(W / 2, dlgY + 36, info, {
+            fontSize: '11px', fill: '#aabbcc', fontFamily: 'monospace', align: 'center', lineSpacing: 3,
         }).setOrigin(0.5, 0).setDepth(51);
 
-        // ゲームスタートボタン
+        // ─── 難易度（ウェーブ密度）選択 ───
+        const DIFFICULTIES = [
+            { label: 'やさしい', density: 0.7,  color: 0x2244aa, border: 0x4488ff, rewardLabel: '×0.8' },
+            { label: 'ふつう',   density: 1.0,  color: 0x224422, border: 0x44aa44, rewardLabel: '×1.0' },
+            { label: 'むずかしい', density: 1.5, color: 0x553300, border: 0xffaa00, rewardLabel: '×1.3' },
+            { label: '地獄',     density: 2.0,  color: 0x440011, border: 0xff2244, rewardLabel: '×1.7' },
+        ];
+
+        let selectedDensity = 1.0;
+        const diffY = dlgY + 100;
+        const diffLabel = this.add.text(W / 2, diffY - 18, '── ウェーブ密度 ──', {
+            fontSize: '11px', fill: '#8899bb', fontFamily: 'monospace',
+        }).setOrigin(0.5, 0.5).setDepth(51);
+
+        const btnW = 68, btnH = 40, btnGap = 6;
+        const totalBtnW = DIFFICULTIES.length * btnW + (DIFFICULTIES.length - 1) * btnGap;
+        const btnStartX = W / 2 - totalBtnW / 2;
+
+        const diffBtnGraphics = [];
+        const diffBtnHits = [];
+
+        const redrawDiffButtons = () => {
+            DIFFICULTIES.forEach((diff, i) => {
+                const bg = diffBtnGraphics[i];
+                bg.clear();
+                const isSelected = diff.density === selectedDensity;
+                bg.fillStyle(isSelected ? diff.border : diff.color, isSelected ? 0.9 : 0.7);
+                bg.fillRoundedRect(btnStartX + i * (btnW + btnGap), diffY, btnW, btnH, 5);
+                bg.lineStyle(isSelected ? 2 : 1, diff.border, isSelected ? 1 : 0.5);
+                bg.strokeRoundedRect(btnStartX + i * (btnW + btnGap), diffY, btnW, btnH, 5);
+            });
+        };
+
+        const diffTexts = [];
+        DIFFICULTIES.forEach((diff, i) => {
+            const bx = btnStartX + i * (btnW + btnGap);
+            const bg = this.add.graphics().setDepth(51);
+            diffBtnGraphics.push(bg);
+
+            const nameT = this.add.text(bx + btnW / 2, diffY + 10, diff.label, {
+                fontSize: '10px', fill: '#ffffff', fontFamily: 'monospace',
+            }).setOrigin(0.5, 0.5).setDepth(52);
+
+            const rewardT = this.add.text(bx + btnW / 2, diffY + 28, `報酬${diff.rewardLabel}`, {
+                fontSize: '9px', fill: '#ccccaa', fontFamily: 'monospace',
+            }).setOrigin(0.5, 0.5).setDepth(52);
+
+            diffTexts.push(nameT, rewardT);
+
+            const hit = this.add.rectangle(bx + btnW / 2, diffY + btnH / 2, btnW, btnH, 0, 0)
+                .setInteractive({ useHandCursor: true }).setDepth(53);
+            hit.on('pointerdown', () => {
+                selectedDensity = diff.density;
+                redrawDiffButtons();
+            });
+            diffBtnHits.push(hit);
+        });
+        redrawDiffButtons();
+
+        // ─── バトル開始ボタン ───
+        const startBtnY = dlgY + dlgH - 58;
         const startBg = this.add.graphics().setDepth(51);
         const drawStart = (hover) => {
             startBg.clear();
             startBg.fillStyle(hover ? 0x336633 : 0x224422);
-            startBg.fillRoundedRect(W / 2 - 80, dlgY + dlgH - 50, 160, 36, 6);
+            startBg.fillRoundedRect(W / 2 - 80, startBtnY, 160, 36, 6);
             startBg.lineStyle(1, hover ? 0x88ff88 : 0x44aa44);
-            startBg.strokeRoundedRect(W / 2 - 80, dlgY + dlgH - 50, 160, 36, 6);
+            startBg.strokeRoundedRect(W / 2 - 80, startBtnY, 160, 36, 6);
         };
         drawStart(false);
-        const startText = this.add.text(W / 2, dlgY + dlgH - 32, 'バトル開始！', {
+        const startText = this.add.text(W / 2, startBtnY + 18, 'バトル開始！', {
             fontSize: '15px', fill: '#88ff88', fontFamily: 'monospace',
         }).setOrigin(0.5, 0.5).setDepth(52);
-        const startHit = this.add.rectangle(W / 2, dlgY + dlgH - 32, 160, 36, 0, 0)
+        const startHit = this.add.rectangle(W / 2, startBtnY + 18, 160, 36, 0, 0)
             .setInteractive({ useHandCursor: true }).setDepth(53);
         startHit.on('pointerover', () => drawStart(true));
         startHit.on('pointerout', () => drawStart(false));
         startHit.on('pointerdown', () => {
-            // 全ダイアログ要素を破棄してゲームへ
-            overlay.destroy(); title.destroy(); infoText.destroy();
-            startBg.destroy(); startText.destroy(); startHit.destroy();
-            closeBg.destroy(); closeText.destroy(); closeHit.destroy();
+            const destroyAll = () => {
+                overlay.destroy(); title.destroy(); infoText.destroy();
+                diffLabel.destroy();
+                diffBtnGraphics.forEach(g => g.destroy());
+                diffTexts.forEach(t => t.destroy());
+                diffBtnHits.forEach(h => h.destroy());
+                startBg.destroy(); startText.destroy(); startHit.destroy();
+                closeBg.destroy(); closeText.destroy(); closeHit.destroy();
+            };
+            destroyAll();
             this.scene.start('GameScene', {
                 stageId: stage.id,
                 saveData: this.saveData,
+                waveDensity: selectedDensity,
             });
         });
 
-        // 閉じるボタン
+        // ─── 閉じるボタン ───
         const closeBg = this.add.graphics().setDepth(51);
         const drawClose = (hover) => {
             closeBg.clear();
             closeBg.fillStyle(hover ? 0x553333 : 0x331111);
-            closeBg.fillRoundedRect(W / 2 - 40, dlgY + dlgH - 10, 80, 24, 4);
+            closeBg.fillRoundedRect(W / 2 - 40, dlgY + dlgH - 18, 80, 24, 4);
         };
         drawClose(false);
-        const closeText = this.add.text(W / 2, dlgY + dlgH + 2, '閉じる', {
+        const closeText = this.add.text(W / 2, dlgY + dlgH - 6, '閉じる', {
             fontSize: '12px', fill: '#cc8888', fontFamily: 'monospace',
         }).setOrigin(0.5, 0.5).setDepth(52);
-        const closeHit = this.add.rectangle(W / 2, dlgY + dlgH + 2, 80, 24, 0, 0)
+        const closeHit = this.add.rectangle(W / 2, dlgY + dlgH - 6, 80, 24, 0, 0)
             .setInteractive({ useHandCursor: true }).setDepth(53);
         closeHit.on('pointerover', () => drawClose(true));
         closeHit.on('pointerout', () => drawClose(false));
         closeHit.on('pointerdown', () => {
             overlay.destroy(); title.destroy(); infoText.destroy();
+            diffLabel.destroy();
+            diffBtnGraphics.forEach(g => g.destroy());
+            diffTexts.forEach(t => t.destroy());
+            diffBtnHits.forEach(h => h.destroy());
             startBg.destroy(); startText.destroy(); startHit.destroy();
             closeBg.destroy(); closeText.destroy(); closeHit.destroy();
         });

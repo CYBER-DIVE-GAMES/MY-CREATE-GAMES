@@ -3,10 +3,11 @@
 // ============================================================
 
 class WaveManager {
-    constructor(scene, stageData, upgrades) {
+    constructor(scene, stageData, upgrades, waveDensity) {
         this.scene = scene;
         this.stageData = stageData;
         this.upgrades = upgrades || {};
+        this.waveDensity = waveDensity || 1.0;
 
         this.startTime = null;
         this.waveIndex = 0;
@@ -48,7 +49,7 @@ class WaveManager {
     }
 
     spawnWave(wave, time) {
-        const count = wave.count || 1;
+        const count = Math.max(1, Math.round((wave.count || 1) * this.waveDensity));
         const unitKey = wave.type;
         const baseConfig = UNIT_DATA[unitKey];
         if (!baseConfig) {

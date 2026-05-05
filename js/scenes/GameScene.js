@@ -15,8 +15,9 @@ class GameScene extends Phaser.Scene {
     }
 
     init(data) {
-        this.stageId  = data.stageId !== undefined ? data.stageId : 0;
-        this.saveData = data.saveData || SaveManager.load();
+        this.stageId     = data.stageId !== undefined ? data.stageId : 0;
+        this.saveData    = data.saveData || SaveManager.load();
+        this.waveDensity = data.waveDensity !== undefined ? data.waveDensity : 1.0;
     }
 
     create() {
@@ -58,7 +59,7 @@ class GameScene extends Phaser.Scene {
         );
 
         // WaveManager
-        this.waveManager = new WaveManager(this, stageData, this.saveData.upgrades);
+        this.waveManager = new WaveManager(this, stageData, this.saveData.upgrades, this.waveDensity);
 
         // UIManager
         this.uiManager = new UIManager(this, this.saveData);
@@ -538,6 +539,14 @@ class GameScene extends Phaser.Scene {
         return Math.max(200, Math.min(minX, GAME_CONSTANTS.ENEMY_CASTLE_X - 50));
     }
 
+    // ウェーブ密度に応じた報酬倍率
+    _getDensityRewardMulti(density) {
+        if (density <= 0.7) return 0.8;
+        if (density <= 1.0) return 1.0;
+        if (density <= 1.5) return 1.3;
+        return 1.7;
+    }
+
     // ============================================================
     // 勝利・敗北
     // ============================================================
@@ -559,10 +568,11 @@ class GameScene extends Phaser.Scene {
         const baseExp  = stage ? stage.rewards.exp : 50;
         const baseGold = stage ? stage.rewards.gold : 100;
 
-        // 星ボーナス（3★で1.5倍、2★で1.2倍）
-        const starMulti = stars === 3 ? 1.5 : stars === 2 ? 1.2 : 1.0;
-        const expGained  = Math.floor(baseExp * starMulti);
-        const goldGained = Math.floor(baseGold * starMulti);
+        // 星ボーナス（3★で1.5倍、2★で1.2倍）＋ウェーブ密度ボーナス
+        const starMulti    = stars === 3 ? 1.5 : stars === 2 ? 1.2 : 1.0;
+        const densityMulti = this._getDensityRewardMulti(this.waveDensity);
+        const expGained  = Math.floor(baseExp * starMulti * densityMulti);
+        const goldGained = Math.floor(baseGold * starMulti * densityMulti);
 
         // セーブデータ更新
         this.saveData.gold += goldGained;

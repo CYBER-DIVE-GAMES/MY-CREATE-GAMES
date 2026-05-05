@@ -82,6 +82,14 @@ class UIManager {
             fontSize: '11px', fill: '#ffcc44', fontFamily: 'monospace'
         }).setDepth(20).setOrigin(1, 0);
 
+        // ============ 難易度（ウェーブ密度）表示 ============
+        const density = scene.waveDensity || 1.0;
+        const diffLabel = density <= 0.7 ? 'やさしい' : density <= 1.0 ? 'ふつう' : density <= 1.5 ? 'むずかしい' : '地獄';
+        const diffColor = density <= 0.7 ? '#4488ff' : density <= 1.0 ? '#44cc44' : density <= 1.5 ? '#ffaa00' : '#ff2244';
+        scene.add.text(10, HY + 12, `密度: ${diffLabel}`, {
+            fontSize: '10px', fill: diffColor, fontFamily: 'monospace',
+        }).setDepth(20).setOrigin(0, 0);
+
         // ============ ユニットデプロイボタン ============
         const btnW = 105, btnH = 62;
         const btnStartX = 10;
