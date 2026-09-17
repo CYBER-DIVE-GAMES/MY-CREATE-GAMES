@@ -14,7 +14,7 @@ function removeModulePlugin(): Plugin {
 }
 
 export default defineConfig({
-  base: './',
+  base: '/MY-CREATE-GAMES/',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
